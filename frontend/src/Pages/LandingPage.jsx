@@ -98,7 +98,7 @@ function LandingPage() {
 
             <div className=" pt-5 flex flex-col items-center text-center ">
                 <span className="text-2xl font-semibold ">How it Works</span>
-                <span >Get your goods delivered in 5 simple steps</span>
+                <span >Get your goods delivered in 5 simple steps/</span>
             </div>
 
         </div>
