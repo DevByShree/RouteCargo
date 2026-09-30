@@ -1,5 +1,7 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import DashboardNavbar from "./DashboardNavbar";
+
 
 function CustomerLayout() {
     return (
@@ -10,6 +12,7 @@ function CustomerLayout() {
 
             {/* Page Content */}
             <main className="flex-1 min-w-0">
+                <DashboardNavbar />
                 <Outlet />
             </main>
 

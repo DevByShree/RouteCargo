@@ -6,7 +6,10 @@ const Signin = () => {
     const [showPassword, setShowPassword] = useState(false);
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50"
+        
+        
+        >
 
             <div className="w-full max-w-md bg-white rounded-2xl shadow-xl px-11 py-14">
 
