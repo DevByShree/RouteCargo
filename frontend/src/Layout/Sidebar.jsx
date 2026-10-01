@@ -28,7 +28,7 @@ function Sidebar() {
         },
         {
             name: "Create Shipment",
-            path: "/create-shipment",
+            path: "/shipment",
             icon: FilePlus2,
         },
         {
@@ -67,6 +67,7 @@ function Sidebar() {
             path: "/profile",
             icon: UserRound,
         },
+    
     ];
     return (
         <div

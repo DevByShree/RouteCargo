@@ -11,6 +11,7 @@ import Track from "./Pages/Customer/Tracking/track";
 import Address from "./Pages/Customer/Saved_Address/Address.jsx";
 import Payments from "./Pages/Customer/Payment/Payment.jsx";
 import Profile from "./Pages/Customer/Profile/Profile.jsx";
+import Shipment from "./Pages/Customer/Shipment/shipment.jsx";
 
 import CustomerLayout from "./Layout/CustomerLayout";
 
@@ -37,6 +38,7 @@ function App() {
                     <Route path="/address" element={<Address />} />
                     <Route path="/payment" element={<Payments />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/shipment" element={<Shipment />} />
 
                 </Route>
 
