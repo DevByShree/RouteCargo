@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Home, PackagePlus, Truck, CalendarCheck, Crosshair, Wallet, MapPin, Bell, User,
   Search, X, Calendar, Clock, Info, ExternalLink, Plus, Minus, ArrowRight,
@@ -81,21 +81,53 @@ function LocationField({ label, value, onChange, chips }) {
   );
 }
 
-function DateTimeField({ label, type, icon: Icon, value, onChange, display }) {
+function DateTimeField({
+  label,
+  type,
+  icon: Icon,
+  value,
+  onChange,
+  display,
+  min,
+}) {
+  const inputRef = useRef(null);
+
+  const openPicker = () => {
+    if (inputRef.current) {
+      if (inputRef.current.showPicker) {
+        inputRef.current.showPicker();
+      } else {
+        inputRef.current.focus();
+      }
+    }
+  };
+
   return (
     <div className="min-w-0">
       <Label>{label}</Label>
-      <div className="relative flex h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+
+      <button
+        type="button"
+        onClick={openPicker}
+        className="relative flex h-11 w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-left transition hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      >
         <Icon className="h-4 w-4 shrink-0 text-slate-500" />
-        <span className="truncate text-sm text-slate-800">{display}</span>
+
+        <span className="truncate text-sm text-slate-800">
+          {display}
+        </span>
+
         <input
+          ref={inputRef}
           type={type}
           value={value}
+          min={min}
           onChange={(e) => onChange(e.target.value)}
           aria-label={label}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          className="pointer-events-none absolute h-0 w-0 opacity-0"
+          tabIndex={-1}
         />
-      </div>
+      </button>
     </div>
   );
 }
@@ -252,11 +284,43 @@ export default function Shipment() {
               </div>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <DateTimeField label="Pickup Date" type="date" icon={Calendar} value={pickupDate} onChange={setPickupDate} display={pickupDate ? fmtDate(pickupDate) : "Select date"} />
-                <DateTimeField label="Pickup Time" type="time" icon={Clock} value={pickupTime} onChange={setPickupTime} display={pickupTime ? fmtTime(pickupTime) : "Select time"} />
-                <DateTimeField label="Expected Delivery Date" type="date" icon={Calendar} value={deliveryDate} onChange={setDeliveryDate} display={deliveryDate ? fmtDate(deliveryDate) : "Select date"} />
-                <DateTimeField label="Expected Delivery Time" type="time" icon={Clock} value={deliveryTime} onChange={setDeliveryTime} display={deliveryTime ? fmtTime(deliveryTime) : "Select time"} />
-              </div>
+  <DateTimeField
+    label="Pickup Date"
+    type="date"
+    icon={Calendar}
+    value={pickupDate}
+    onChange={setPickupDate}
+    display={pickupDate ? fmtDate(pickupDate) : "Select date"}
+  />
+
+  <DateTimeField
+    label="Pickup Time"
+    type="time"
+    icon={Clock}
+    value={pickupTime}
+    onChange={setPickupTime}
+    display={pickupTime ? fmtTime(pickupTime) : "Select time"}
+  />
+
+  <DateTimeField
+    label="Expected Delivery Date"
+    type="date"
+    icon={Calendar}
+    value={deliveryDate}
+    onChange={setDeliveryDate}
+    display={deliveryDate ? fmtDate(deliveryDate) : "Select date"}
+    min={pickupDate}
+  />
+
+  <DateTimeField
+    label="Expected Delivery Time"
+    type="time"
+    icon={Clock}
+    value={deliveryTime}
+    onChange={setDeliveryTime}
+    display={deliveryTime ? fmtTime(deliveryTime) : "Select time"}
+  />
+</div>
 
               <div className="mt-6 flex items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-slate-700">
                 <Info className="h-4 w-4 shrink-0 text-blue-600" />

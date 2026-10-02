@@ -4,6 +4,7 @@ import {
     House,
     FilePlus2,
     Truck,
+    Package,
     CalendarDays,
     CircleDot,
     CreditCard,
@@ -31,6 +32,12 @@ function Sidebar() {
             path: "/shipment",
             icon: FilePlus2,
         },
+        {
+            name: "Parcel Details",
+            path: "/parcel",
+            icon: Package,
+        },
+        
         {
             name: "Find Trucks",
             path: "/Find",
