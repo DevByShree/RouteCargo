@@ -1,40 +1,23 @@
 import { useRef, useState } from "react";
 import {
-  Home, PackagePlus, Truck, CalendarCheck, Crosshair, Wallet, MapPin, Bell, User,
-  Search, X, Calendar, Clock, Info, ExternalLink, Plus, Minus, ArrowRight,
-  CircleHelp, LogOut, Sprout, Package, Route, Timer, Ruler, ChevronDown, FileText,
+  MapPin,
+  Search, X, Info, ExternalLink, Plus, Minus, ArrowRight,
+  Sprout, Package, Route, Timer, Ruler, FileText,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const NAV = [
-  { label: "Dashboard", icon: Home },
-  { label: "Create Shipment", icon: PackagePlus, active: true },
-  { label: "Find Trucks", icon: Truck },
-  { label: "My Bookings", icon: CalendarCheck },
-  { label: "Tracking", icon: Crosshair },
-  { label: "Payments", icon: Wallet },
-  { label: "Saved Addresses", icon: MapPin },
-  { label: "Notifications", icon: Bell, badge: 3 },
-  { label: "Profile", icon: User },
-];
-
-const STEPS = [
-  { title: "Pickup & Delivery", sub: "Locations and schedule" },
-  { title: "Parcel Details", sub: "Weight, size, type" },
-  { title: "Find Trucks", sub: "View matching trucks" },
-  { title: "Review & Book", sub: "Confirm and send request" },
-];
 
 const PICKUP_CHIPS = ["Pune", "Hinjawadi", "Chakan", "Bhosari"];
 const DELIVERY_CHIPS = ["Mumbai", "Navi Mumbai", "Thane", "Panvel"];
 
-const fmtDate = (iso) =>
-  new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+// const fmtDate = (iso) =>
+//   new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
-const fmtTime = (t) => {
-  const [h, m] = t.split(":").map(Number);
-  const hh = h % 12 === 0 ? 12 : h % 12;
-  return `${String(hh).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
-};
+// const fmtTime = (t) => {
+//   const [h, m] = t.split(":").map(Number);
+//   const hh = h % 12 === 0 ? 12 : h % 12;
+//   return `${String(hh).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+// };
 
 function Label({ children }) {
   return (
@@ -68,9 +51,8 @@ function LocationField({ label, value, onChange, chips }) {
             <button
               key={c}
               onClick={() => onChange(`${c}, Maharashtra`)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                active ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${active ? "bg-blue-100 text-blue-900" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
             >
               {c}
             </button>
@@ -81,26 +63,9 @@ function LocationField({ label, value, onChange, chips }) {
   );
 }
 
-function DateTimeField({
-  label,
-  type,
-  icon: Icon,
-  value,
-  onChange,
-  display,
-  min,
-}) {
+function DateTimeField({ label, type, icon: Icon, value, min, onChange, display }) {
   const inputRef = useRef(null);
-
-  const openPicker = () => {
-    if (inputRef.current) {
-      if (inputRef.current.showPicker) {
-        inputRef.current.showPicker();
-      } else {
-        inputRef.current.focus();
-      }
-    }
-  };
+  const openPicker = () => inputRef.current?.showPicker?.();
 
   return (
     <div className="min-w-0">
@@ -214,59 +179,26 @@ function SummaryStat({ icon: Icon, label, children }) {
 export default function Shipment() {
   const [pickup, setPickup] = useState("Pune, Maharashtra");
   const [delivery, setDelivery] = useState("Mumbai, Maharashtra");
-  const [pickupDate, setPickupDate] = useState("2026-09-22");
-  const [pickupTime, setPickupTime] = useState("09:00");
-  const [deliveryDate, setDeliveryDate] = useState("2026-09-23");
-  const [deliveryTime, setDeliveryTime] = useState("18:00");
+  // const [pickupDate, setPickupDate] = useState("2026-09-22");
+  // const [pickupTime, setPickupTime] = useState("09:00");
 
-  const valid = pickup && delivery && pickupDate && pickupTime && deliveryDate && deliveryTime;
+
+  // const valid = pickup && delivery && pickupDate && pickupTime;
+  const navigate = useNavigate();
+
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Sidebar */}
-      
-      {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        
-
         <main className="flex-1 p-6">
-          <nav className="text-sm text-slate-600">
-            Create Shipment <span className="mx-1">›</span>
-            <span className="font-medium text-slate-900">Pickup & Delivery</span>
-          </nav>
-
           <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight text-blue-950">Create a New Shipment</h1>
-              <p className="mt-1 text-slate-600">Tell us about your shipment and we'll find the best trucks for you.</p>
             </div>
             <button className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-50">
               <FileText className="h-4 w-4" /> Save as Draft
             </button>
           </div>
-
-          {/* Stepper */}
-          <ol className="mt-6 grid gap-4 rounded-xl bg-white px-6 py-5 sm:grid-cols-2 xl:grid-cols-4">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="flex items-center gap-3">
-                <span
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${
-                    i === 0 ? "bg-blue-700 text-white" : "border-2 border-slate-200 text-slate-600"
-                  }`}
-                >
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="whitespace-nowrap font-medium">{s.title}</span>
-                    {i < 3 && <span className={`hidden h-px flex-1 xl:block ${i === 0 ? "bg-blue-700" : "bg-slate-200"}`} />}
-                  </div>
-                  <div className="text-sm text-slate-500">{s.sub}</div>
-                </div>
-              </li>
-            ))}
-          </ol>
-
           <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_350px]">
             {/* Form card */}
             <section className="rounded-xl bg-white p-6 shadow-sm">
@@ -283,44 +215,25 @@ export default function Shipment() {
                 <LocationField label="Delivery Location" value={delivery} onChange={setDelivery} chips={DELIVERY_CHIPS} />
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-  <DateTimeField
-    label="Pickup Date"
-    type="date"
-    icon={Calendar}
-    value={pickupDate}
-    onChange={setPickupDate}
-    display={pickupDate ? fmtDate(pickupDate) : "Select date"}
-  />
+              {/* <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <DateTimeField
+                  label="Pickup Date"
+                  type="date"
+                  icon={Calendar}
+                  value={pickupDate}
+                  onChange={setPickupDate}
+                  display={pickupDate ? fmtDate(pickupDate) : "Select date"}
+                />
 
-  <DateTimeField
-    label="Pickup Time"
-    type="time"
-    icon={Clock}
-    value={pickupTime}
-    onChange={setPickupTime}
-    display={pickupTime ? fmtTime(pickupTime) : "Select time"}
-  />
-
-  <DateTimeField
-    label="Expected Delivery Date"
-    type="date"
-    icon={Calendar}
-    value={deliveryDate}
-    onChange={setDeliveryDate}
-    display={deliveryDate ? fmtDate(deliveryDate) : "Select date"}
-    min={pickupDate}
-  />
-
-  <DateTimeField
-    label="Expected Delivery Time"
-    type="time"
-    icon={Clock}
-    value={deliveryTime}
-    onChange={setDeliveryTime}
-    display={deliveryTime ? fmtTime(deliveryTime) : "Select time"}
-  />
-</div>
+                <DateTimeField
+                  label="Pickup Time"
+                  type="time"
+                  icon={Clock}
+                  value={pickupTime}
+                  onChange={setPickupTime}
+                  display={pickupTime ? fmtTime(pickupTime) : "Select time"}
+                />
+              </div> */}
 
               <div className="mt-6 flex items-center gap-3 rounded-lg bg-blue-50 px-4 py-3 text-sm text-slate-700">
                 <Info className="h-4 w-4 shrink-0 text-blue-600" />
@@ -351,7 +264,7 @@ export default function Shipment() {
                   <div className="font-semibold">Pickup</div>
                   <div className="text-slate-700">{pickup || "—"}</div>
                   <div className="text-sm text-slate-500">
-                    {pickupDate && pickupTime ? `${fmtDate(pickupDate)}, ${fmtTime(pickupTime)}` : "Date not set"}
+                    {/* {pickupDate && pickupTime ? `${fmtDate(pickupDate)}, ${fmtTime(pickupTime)}` : "Date not set"} */}
                   </div>
                 </div>
                 <div className="relative">
@@ -360,9 +273,6 @@ export default function Shipment() {
                   </span>
                   <div className="font-semibold">Delivery</div>
                   <div className="text-slate-700">{delivery || "—"}</div>
-                  <div className="text-sm text-slate-500">
-                    {deliveryDate && deliveryTime ? `${fmtDate(deliveryDate)}, ${fmtTime(deliveryTime)}` : "Date not set"}
-                  </div>
                 </div>
               </div>
 
@@ -380,7 +290,8 @@ export default function Shipment() {
               </div>
 
               <button
-                disabled={!valid}
+                onClick={() => navigate("/parcel")}
+                // disabled={!valid}
                 className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-700 font-medium text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 Next: Parcel Details <ArrowRight className="h-4 w-4" />

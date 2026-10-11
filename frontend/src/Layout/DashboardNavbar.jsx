@@ -1,4 +1,4 @@
-import { Search, Bell, ChevronDown } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
 
 function DashboardNavbar() {
     return (
@@ -23,7 +23,7 @@ function DashboardNavbar() {
 
 
             {/* Search */}
-            <div className="flex-1 max-w-[430px] mx-10">
+            {/* <div className="flex-1 max-w-[430px] mx-10">
                 <div className="h-[38px] border border-gray-200 rounded-lg flex items-center px-3 gap-2">
                     <Search size={17} className="text-gray-500" />
 
@@ -33,7 +33,7 @@ function DashboardNavbar() {
                         className="w-full outline-none text-sm text-gray-600 placeholder:text-gray-400"
                     />
                 </div>
-            </div>
+            </div> */}
 
 
             {/* Right Section */}

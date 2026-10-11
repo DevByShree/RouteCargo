@@ -1,0 +1,22 @@
+# Frontend packages (npm)
+@tailwindcss/vite
+lucide-react
+react
+react-dom
+react-icons
+react-router-dom
+tailwindcss
+@eslint/js
+@types/react
+@types/react-dom
+@vitejs/plugin-react
+eslint
+eslint-plugin-react-hooks
+eslint-plugin-react-refresh
+globals
+vite
+
+# Backend packages (npm)
+dotenv
+express
+mongoose
