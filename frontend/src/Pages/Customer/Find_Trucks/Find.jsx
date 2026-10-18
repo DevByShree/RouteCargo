@@ -4,7 +4,6 @@ import ind from "../../../assets/ind.png"
 
 function Find({ formData }) {
 
-    const [activeStep, setActiveStep] = useState(3);
     const [showFilters, setShowFilters] = useState(false);
 
     const {
@@ -27,13 +26,6 @@ function Find({ formData }) {
         distance = "150 Km",
         estimatedTime = "3-4 Hrs",
     } = formData || {};
-
-    const steps = [
-        { id: 1, name: "Pickup & Delivery", status: "Completed" },
-        { id: 2, name: "Parcel Details", status: "Completed" },
-        { id: 3, name: "Find Trucks", status: "View matching trucks" },
-        { id: 4, name: "Review & Book", status: "Confirm and send request" },
-    ];
 
     const trucks = [
         {
@@ -121,57 +113,6 @@ function Find({ formData }) {
                 </span>
 
             </div>
-
-            {/* Steps */}
-            <div className="bg-white border-t border-b border-gray-200 w-full flex items-center justify-start sm:justify-center gap-6 sm:gap-10 py-3 px-4 sm:px-6 overflow-x-auto">
-
-                {steps.map((step) => (
-
-                    <div
-                        key={step.id}
-                        onClick={() => setActiveStep(step.id)}
-                        className="flex items-center gap-2 cursor-pointer shrink-0"
-                    >
-
-                        {/* Circle */}
-                        <span
-                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-semibold shrink-0 transition text-sm
-                                ${activeStep === step.id
-                                    ? "border-blue-600 bg-blue-600 text-white"
-                                    : step.id < activeStep
-                                        ? "border-green-600 bg-white text-green-600"
-                                        : "border-gray-300 bg-white text-gray-400"
-                                }
-                            `}
-                        >
-                            {step.id < activeStep ? "✓" : step.id}
-                        </span>
-
-                        {/* Text */}
-                        <div className="flex flex-col">
-                            <span
-                                className={`font-semibold text-xs sm:text-sm whitespace-nowrap transition
-                                    ${activeStep === step.id
-                                        ? "text-blue-600"
-                                        : step.id < activeStep
-                                            ? "text-green-600"
-                                            : "text-gray-500"
-                                    }
-                                `}
-                            >
-                                {step.name}
-                            </span>
-                            <span className={`hidden sm:inline text-xs ${step.id < activeStep ? "text-green-600" : "text-gray-400"}`}>
-                                {step.status}
-                            </span>
-                        </div>
-
-                    </div>
-
-                ))}
-
-            </div>
-
             {/* Mobile filter toggle */}
             <button
                 onClick={() => setShowFilters((s) => !s)}
