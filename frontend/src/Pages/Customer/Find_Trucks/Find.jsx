@@ -48,46 +48,6 @@ function Find({ formData }) {
             rating: 4.8,
             reviews: 120,
         },
-        {
-            id: 2,
-            image: tc,
-            name: "Patil Logistics",
-            verified: true,
-            matchPercent: 88,
-            matchLabel: "Route Match",
-            vehicle: "Eicher 7 Ton (Open Truck)",
-            vehicleNo: "MH14 CD 5678",
-            route: `${pickup.location.split(",")[0]} → ${delivery.location.split(",")[0]}`,
-            depTime: `Dep: ${pickup.date} ${pickup.time}`,
-            arrTime: `Arr: ${delivery.date} ${delivery.time}`,
-            capacity: "2.0 / 7 Ton",
-            capacityPercent: 29,
-            price: "₹ 6,200",
-            priceNote: "₹ 3,100 per Ton",
-            driver: "Suresh Patil",
-            rating: 4.6,
-            reviews: 98,
-        },
-        {
-            id: 3,
-            image: tc,
-            name: "Shree Roadlines",
-            verified: true,
-            matchPercent: 78,
-            matchLabel: "Route Match",
-            vehicle: "Ashok Leyland 12 Ton (Container)",
-            vehicleNo: "MH12 XY 9012",
-            route: `${pickup.location.split(",")[0]} → ${delivery.location.split(",")[0]}`,
-            depTime: `Dep: ${pickup.date} ${pickup.time}`,
-            arrTime: `Arr: ${delivery.date} ${delivery.time}`,
-            capacity: "4.0 / 12 Ton",
-            capacityPercent: 33,
-            price: "₹ 9,800",
-            priceNote: "₹ 2,450 per Ton",
-            driver: "Amit Jadhav",
-            rating: 4.5,
-            reviews: 76,
-        },
     ];
 
     return (
@@ -95,25 +55,13 @@ function Find({ formData }) {
 
             {/* Header */}
             <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-3">
-
-                <span className="font-light text-gray-500 text-sm">
-                    Create Shipment &gt;{" "}
-                </span>
-
-                <span className="font-semibold text-gray-900 text-sm">
-                    Find Trucks
-                </span>
-
                 <div className="font-bold text-xl sm:text-2xl py-1 text-gray-900">
                     Find Available Trucks
                 </div>
-
                 <span className="text-gray-500 text-sm">
                     We found {trucks.length} trucks travelling on your route or nearby routes
                 </span>
-
             </div>
-            {/* Mobile filter toggle */}
             <button
                 onClick={() => setShowFilters((s) => !s)}
                 className="lg:hidden mx-4 sm:mx-6 mt-3 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 flex items-center justify-between"
@@ -122,81 +70,7 @@ function Find({ formData }) {
                 <span className="text-gray-400">{showFilters ? "▲" : "▼"}</span>
             </button>
 
-            {/* Main content: 3 columns on desktop, stacked on mobile/tablet */}
             <div className="flex flex-col lg:flex-row flex-1 gap-4 px-4 sm:px-6 lg:px-8 py-4 items-start">
-
-                {/* Left: Filters */}
-                <div className={`${showFilters ? "flex" : "hidden"} lg:flex w-full lg:w-64 shrink-0 bg-white rounded-lg border border-gray-200 p-4 flex-col gap-4`}>
-
-                    <div className="flex justify-between items-center">
-                        <span className="font-bold text-sm">Filters</span>
-                        <span className="text-xs text-blue-600 cursor-pointer">Reset</span>
-                    </div>
-
-                    {/* Vehicle Type */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="font-semibold text-xs text-gray-700">Vehicle Type</span>
-                        <div className="grid grid-cols-2 lg:flex lg:flex-col gap-1.5">
-                            {["All Types", "Open Truck", "Container", "Refrigerated", "Trailer", "Mini Truck"].map((v, i) => (
-                                <label key={v} className="flex items-center gap-2 text-xs text-gray-600">
-                                    <input type="checkbox" defaultChecked={i === 0} readOnly />
-                                    {v}
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Capacity Range */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="font-semibold text-xs text-gray-700">Capacity Range</span>
-                        <input type="range" min="0" max="100" readOnly className="w-full" />
-                        <div className="flex justify-between text-xs text-gray-400">
-                            <span>0.5 Ton</span>
-                            <span>20+ Ton</span>
-                        </div>
-                    </div>
-
-                    {/* Price Range */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="font-semibold text-xs text-gray-700">Price Range (₹)</span>
-                        <input type="range" min="0" max="100" readOnly className="w-full" />
-                        <div className="flex justify-between text-xs text-gray-400">
-                            <span>₹0</span>
-                            <span>₹50,000+</span>
-                        </div>
-                    </div>
-
-                    {/* Departure Date - pulled from the pickup step's form data */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="font-semibold text-xs text-gray-700">Departure Date</span>
-                        <input
-                            type="text"
-                            readOnly
-                            value={pickup.date}
-                            className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-700 w-full"
-                        />
-                    </div>
-
-                    {/* Additional Filters */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="font-semibold text-xs text-gray-700">Additional Filters</span>
-                        <div className="grid grid-cols-2 lg:flex lg:flex-col gap-1.5">
-                            {["Verified Drivers Only", "Instant Booking", "Pets Allowed", "Fragile Handling", "GPS Enabled"].map((v, i) => (
-                                <label key={v} className="flex items-center gap-2 text-xs text-gray-600">
-                                    <input type="checkbox" defaultChecked={i === 0 || i === 1} readOnly />
-                                    {v}
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    <button className="bg-blue-600 text-white rounded-lg py-2 text-sm font-semibold cursor-pointer hover:bg-blue-700 transition">
-                        Apply Filters
-                    </button>
-
-                </div>
-
-                {/* Middle: Truck List */}
                 <div className="flex-1 w-full flex flex-col gap-3 min-w-0">
 
                     <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2 lg:bg-transparent lg:px-0 lg:py-0">
@@ -211,14 +85,11 @@ function Find({ formData }) {
 
                     {trucks.map((truck) => (
                         <div key={truck.id} className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col md:flex-row gap-3 items-start">
-
                             {/* Image placeholder */}
                             <img
                                 src={truck.image}
                                 alt={truck.name}
-                                className="w-full md:w-28 h-24 md:h-20 rounded-md bg-gray-200 object-cover shrink-0"
-                            />
-
+                                className="w-full md:w-28 h-24 md:h-20 rounded-md bg-gray-200 object-cover shrink-0" />
                             {/* Details */}
                             <div className="flex-1 w-full flex flex-col gap-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-1.5">
@@ -337,12 +208,6 @@ function Find({ formData }) {
                             </div>
                         </div>
                     </div>
-
-                    {/* Info banner */}
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-xs text-emerald-800">
-                        🌱 Found more trucks! These trucks are already travelling on your route, giving you lower prices and faster delivery.
-                    </div>
-
                 </div>
 
             </div>
