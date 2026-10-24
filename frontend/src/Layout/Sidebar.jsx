@@ -15,7 +15,9 @@ import {
     ChevronRight,
     Menu,
     X,
+    LogOut,
 } from "lucide-react";
+import { authAPI, removeToken } from "../API/api";
 
 const menuItems = [
     { name: "Dashboard", path: "/dashboard", icon: House },
@@ -58,6 +60,21 @@ function Sidebar() {
             document.body.style.overflow = prevOverflow;
         };
     }, [mobileOpen]);
+
+    const handleLogout = async () => {
+        try {
+            await authAPI.signout();
+        } catch {
+            // ignore network/auth errors on logout
+        }
+        removeToken();
+        try {
+            localStorage.removeItem("role");
+        } catch {
+            // ignore
+        }
+        navigate("/");
+    };
 
     // On md+ screens the label is hidden only when collapsed.
     // On mobile the drawer always shows labels.
@@ -176,7 +193,7 @@ function Sidebar() {
                 </div>
 
                 {/* Menu */}
-                <nav className="pt-6 pb-4 px-3">
+                <nav className="pt-6 pb-4 px-3 flex-1 overflow-y-auto">
                     {menuItems.map((item) => {
                         const isActive = location.pathname === item.path;
                         const Icon = item.icon;
@@ -232,6 +249,37 @@ function Sidebar() {
                         );
                     })}
                 </nav>
+
+                {/* Bottom Section - Single Logout Button */}
+                <div className="mt-auto p-3 border-t border-gray-200">
+                    <button
+                        type="button"
+                        title={collapsed ? "Logout" : undefined}
+                        onClick={handleLogout}
+                        className={`
+                            w-full
+                            px-4 py-3
+                            rounded-lg
+                            cursor-pointer
+                            transition
+                            flex items-center gap-4
+                            text-left
+                            text-gray-800 hover:text-black hover:bg-gray-200/80
+                            ${collapsed ? "md:justify-center md:gap-0" : ""}
+                        `}
+                    >
+                        <LogOut
+                            size={22}
+                            strokeWidth={2}
+                            className="shrink-0 text-gray-700"
+                        />
+                        <span
+                            className={`text-[15px] font-medium whitespace-nowrap ${hideOnCollapsed}`}
+                        >
+                            Logout
+                        </span>
+                    </button>
+                </div>
             </aside>
         </>
     );

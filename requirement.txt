@@ -17,6 +17,8 @@ globals
 vite
 
 # Backend packages (npm)
+cors
 dotenv
 express
 mongoose
+nodemon

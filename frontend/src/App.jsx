@@ -15,6 +15,7 @@ import Shipment from "./Pages/Customer/Shipment/shipment.jsx";
 import Parcel from "./Pages/Customer/Parcel/parcel.jsx";
 
 import CustomerLayout from "./Layout/CustomerLayout";
+import DriverDashboard from "./Pages/Driver/Dashboard/Dashboard";
 
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/signin" element={<Signin />} />
+                <Route path="/driver-dashboard" element={<DriverDashboard />} />
 
 
                 {/* Customer Pages */}

@@ -1,7 +1,6 @@
-import { FaTruck, FaClipboardCheck, FaRegClock, FaMapMarkerAlt } from "react-icons/fa";
+import { FaTruck, FaClipboardCheck, FaRegClock, FaMapMarkerAlt, FaBan } from "react-icons/fa";
 import { FiChevronRight, FiPlus, FiMaximize2 } from "react-icons/fi";
 import indImage from "../../../assets/ind.png";
-import { FaBan } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 const stats = [
@@ -21,12 +20,13 @@ function Card({ title, children, className = "" }) {
         </div>
     );
 }
+
 function MapPin({ left, top, label, color }) {
     return (
         <div
             className="absolute flex flex-col items-center -translate-x-1/2 -translate-y-full"
             style={{ left, top }}>
-            <span className="text-xs font-medium whitespace-nowrap bg-white/70 rounded px-1">{label}</span>
+            <span className="text-xs font-medium whitespace-nowrap bg-white/80 rounded px-1">{label}</span>
             <FaMapMarkerAlt size={22} className={color} />
         </div>
     );
@@ -34,6 +34,7 @@ function MapPin({ left, top, label, color }) {
 
 function Dashboard() {
     const navigate = useNavigate();
+
     return (
         <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col gap-4 sm:gap-5 max-w-screen-2xl mx-auto w-full">
             {/* Header */}
@@ -44,7 +45,8 @@ function Dashboard() {
                 </div>
                 <button
                     onClick={() => navigate("/shipment")}
-                    className="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 sm:px-6 py-3 rounded-lg flex items-center gap-2 shrink-0">
+                    className="w-full sm:w-auto justify-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 sm:px-6 py-3 rounded-lg flex items-center gap-2 shrink-0 cursor-pointer text-sm"
+                >
                     <FiPlus size={18} /> Create New Shipment
                 </button>
             </div>
@@ -94,7 +96,6 @@ function Dashboard() {
                 </Card>
 
                 <Card title="Live Tracking" className="xl:col-span-4">
-                    {/* <div className="relative flex-1 min-h-56 sm:min-h-64 rounded-lg bg-linear-to-br from-sky-100 to-green-100 overflow-hidden"> */}
                     <div
                         className="relative flex-1 min-h-56 sm:min-h-64 rounded-lg bg-cover bg-center overflow-hidden"
                         style={{ backgroundImage: `url(${indImage})` }}                     >
@@ -115,9 +116,6 @@ function Dashboard() {
                         </button>
                     </div>
                 </Card>
-
-                {/* <Card title="Recent Activity" className="xl:col-span-8">
-                </Card> */}
             </div>
         </div>
     );
