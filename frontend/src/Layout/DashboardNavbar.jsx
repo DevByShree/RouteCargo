@@ -2,7 +2,7 @@ import { Bell, ChevronDown } from "lucide-react";
 
 function DashboardNavbar() {
     return (
-        <nav className="h-[68px] sticky top-0 z-40 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+        <nav className="h-17 sticky top-0 z-40 bg-white border-b border-gray-200 flex items-center justify-between px-6">
 
             {/* Logo */}
             <div className="flex items-center gap-2">
@@ -25,11 +25,7 @@ function DashboardNavbar() {
             <div className="flex items-center gap-4 sm:gap-5">
 
                 {/* Notification */}
-                <button
-                    type="button"
-                    aria-label="Notifications"
-                    className="relative text-gray-600 hover:text-blue-600 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                >
+                <button type="button" aria-label="Notifications" className="relative text-gray-600 hover:text-blue-600 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" >
                     <Bell size={19} />
                     <span className="absolute top-1.5 right-1.5 w-[6px] h-[6px] bg-red-500 rounded-full"></span>
                 </button>

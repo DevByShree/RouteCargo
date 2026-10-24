@@ -70,26 +70,15 @@ function Navbar() {
                 {/* Desktop right side */}
                 <div className="hidden lg:flex items-center gap-3">
                     {isLoggedIn ? (
-                        <Link
-                            to="/dashboard"
-                            aria-label="Go to dashboard"
-                            title="Dashboard"
-                            className={`w-11 h-11 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors ${focusRing}`}
-                        >
+                        <Link to="/dashboard" aria-label="Go to dashboard" title="Dashboard" className={`w-11 h-11 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors ${focusRing}`} >
                             <FiGrid size={20} />
                         </Link>
                     ) : (
                         <>
-                            <Link
-                                to="/signin"
-                                className={`py-2.5 px-4 text-sm font-medium text-blue-600 hover:text-blue-700 rounded-lg transition-colors ${focusRing}`}
-                            >
+                            <Link to="/signin" className={`py-2.5 px-4 text-sm font-medium text-blue-600 hover:text-blue-700 rounded-lg transition-colors ${focusRing}`} >
                                 Login
                             </Link>
-                            <Link
-                                to="/signup"
-                                className={`py-2.5 px-5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`}
-                            >
+                            <Link to="/signup" className={`py-2.5 px-5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
                                 Sign Up
                             </Link>
                         </>
@@ -97,54 +86,29 @@ function Navbar() {
                 </div>
 
                 {/* Mobile menu button */}
-                <button
-                    type="button"
-                    onClick={() => setOpen(!open)}
-                    aria-expanded={open}
-                    aria-controls="mobile-menu"
-                    aria-label={open ? "Close menu" : "Open menu"}
-                    className={`lg:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 ${focusRing}`}
-                >
+                <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-menu" aria-label={open ? "Close menu" : "Open menu"} className={`lg:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 ${focusRing}`} >
                     {open ? <FiX size={24} /> : <FiMenu size={24} />}
                 </button>
             </div>
 
-            {/* Mobile menu */}
             {open && (
                 <div id="mobile-menu" className="lg:hidden border-t border-gray-200 px-4 sm:px-6 pb-5">
                     <div className="flex flex-col py-2">
                         {navLinks.map((link) => (
-                            <NavItem
-                                key={link.label}
-                                link={link}
-                                onClick={close}
-                                className={`py-3 border-b border-gray-100 ${linkClass}`}
-                            />
+                            <NavItem key={link.label} link={link} onClick={close} className={`py-3 border-b border-gray-100 ${linkClass}`} />
                         ))}
                     </div>
                     <div className="flex gap-3 mt-3">
                         {isLoggedIn ? (
-                            <Link
-                                to="/dashboard"
-                                onClick={close}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`}
-                            >
+                            <Link to="/dashboard" onClick={close} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
                                 <FiGrid size={18} /> Dashboard
                             </Link>
                         ) : (
                             <>
-                                <Link
-                                    to="/signin"
-                                    onClick={close}
-                                    className={`flex-1 text-center py-2.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors ${focusRing}`}
-                                >
+                                <Link to="/signin" onClick={close} className={`flex-1 text-center py-2.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors ${focusRing}`} >
                                     Login
                                 </Link>
-                                <Link
-                                    to="/signup"
-                                    onClick={close}
-                                    className={`flex-1 text-center py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`}
-                                >
+                                <Link to="/signup" onClick={close} className={`flex-1 text-center py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
                                     Sign Up
                                 </Link>
                             </>
