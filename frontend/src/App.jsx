@@ -15,23 +15,23 @@ import Shipment from "./Pages/Customer/Shipment/shipment.jsx";
 import Parcel from "./Pages/Customer/Parcel/parcel.jsx";
 
 import CustomerLayout from "./Layout/CustomerLayout";
+import DriverLayout from "./Layout/DriverLayout";
 
+import RaiseRequest from "./Pages/Driver/RaiseRequest";
+import MyRequests from "./Pages/Driver/MyRequests";
+import DriverProfile from "./Pages/Driver/Profile";
 
 function App() {
     return (
         <BrowserRouter>
-
             <Routes>
-
                 {/* Public Pages */}
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/signin" element={<Signin />} />
 
-
                 {/* Customer Pages */}
                 <Route element={<CustomerLayout />}>
-
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/Find" element={<Find />} />
                     <Route path="/Booking" element={<Booking />} />
@@ -41,11 +41,17 @@ function App() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/shipment" element={<Shipment />} />
                     <Route path="/parcel" element={<Parcel />} />
-
                 </Route>
 
+                {/* Driver Pages */}
+                <Route element={<DriverLayout />}>
+                    <Route path="/driver" element={<RaiseRequest />} />
+                    <Route path="/driver/raise-request" element={<RaiseRequest />} />
+                    <Route path="/driver/my-requests" element={<MyRequests />} />
+                    <Route path="/driver/requests" element={<MyRequests />} />
+                    <Route path="/driver/profile" element={<DriverProfile />} />
+                </Route>
             </Routes>
-
         </BrowserRouter>
     );
 }
