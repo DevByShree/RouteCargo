@@ -12,8 +12,7 @@ const navLinks = [
     { label: "Contact", to: "/" },
 ];
 
-const focusRing =
-    "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2";
+const focusRing = "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2";
 
 const checkLoggedIn = () => {
     try {
@@ -36,12 +35,16 @@ function NavItem({ link, className, onClick }) {
             {link.label}
         </Link>
     );
+
 }
 
 function Navbar() {
     const [open, setOpen] = useState(false);
     const isLoggedIn = checkLoggedIn();
     const close = () => setOpen(false);
+
+    const role = localStorage.getItem('role')
+    const link = role === 'driver' ? '/driver' : '/user'
 
     useEffect(() => {
         if (!open) return;
@@ -70,7 +73,7 @@ function Navbar() {
                 {/* Desktop right side */}
                 <div className="hidden lg:flex items-center gap-3">
                     {isLoggedIn ? (
-                        <Link to="/dashboard" aria-label="Go to dashboard" title="Dashboard" className={`w-11 h-11 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors ${focusRing}`} >
+                        <Link to={link} aria-label="Go to dashboard" title="Dashboard" className={`w-11 h-11 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors ${focusRing}`} >
                             <FiGrid size={20} />
                         </Link>
                     ) : (
@@ -100,7 +103,7 @@ function Navbar() {
                     </div>
                     <div className="flex gap-3 mt-3">
                         {isLoggedIn ? (
-                            <Link to="/dashboard" onClick={close} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
+                            <Link to={link} onClick={close} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
                                 <FiGrid size={18} /> Dashboard
                             </Link>
                         ) : (

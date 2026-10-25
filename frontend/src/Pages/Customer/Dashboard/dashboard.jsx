@@ -71,7 +71,7 @@ function Dashboard() {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5">
                 <Card title="Active Trips" className="xl:col-span-8">
                     <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                        <table className="w-full min-w-[650px] text-left text-xs">
+                        <table className="w-full min-w-162.5 text-left text-xs">
                             <thead>
                                 <tr className="bg-slate-50 text-slate-600 border-y border-slate-100">
                                     <th className="px-2 py-3 font-semibold">Trip ID</th>
