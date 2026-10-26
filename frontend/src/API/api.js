@@ -71,4 +71,9 @@ export const authAPI = {
     signin: (data) => request("/api/auth/signin", { method: "POST", body: JSON.stringify(data) }),
     me: () => request("/api/auth/me", { method: "GET" }),
     signout: () => request("/api/auth/signout", { method: "POST" }),
+    updateMe: (data) => request("/api/auth/me", { method: "PUT", body: JSON.stringify(data) }),
+};
+
+export const shipmentAPI = {
+    create: (data) => request("/api/shipments", { method: "POST", body: JSON.stringify(data) }),
 };

@@ -1,21 +1,58 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { shipmentAPI } from "../../../API/api";
 import {
   Package, Box, ChevronDown, Minus, Plus, Pencil, Trash2, ClipboardList,
   ArrowLeft, ArrowRight, Image as ImageIcon, Camera, Upload, X, Tag,
+  MapPin, AlertCircle, Layers, Cpu, Armchair, Cog, Shirt, Apple, FileText,
 } from "lucide-react";
 
 const PARCEL_TYPES = ["Electronics", "Furniture", "Machinery", "Textiles", "Food & Perishables", "Documents", "Other"];
+
+// Each parcel type gets its own icon (used in the dropdown and in the summary)
+const TYPE_ICONS = {
+  Electronics: Cpu,
+  Furniture: Armchair,
+  Machinery: Cog,
+  Textiles: Shirt,
+  "Food & Perishables": Apple,
+  Documents: FileText,
+  Other: Box,
+};
 const MAX_DESC = 500;
 const MAX_IMAGE_MB = 5;
 const MAX_IMAGES = 6;
-const Req = () => <span className="text-red-500"> *</span>;
 
-function Field({ label, required, children }) {
+const formatSize = (bytes) =>
+  bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+const inputShell =
+  "flex h-11 items-stretch overflow-hidden rounded-lg border border-slate-200 bg-white transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100";
+
+/* ---------- Small building blocks ---------- */
+function SectionHeader({ title, subtitle }) {
+  return (
+    <div className="flex items-start gap-3 border-b border-slate-100 pb-5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50">
+        <Package className="h-6 w-6 text-orange-500" strokeWidth={1.6} />
+      </span>
+      <div>
+        <h2 className="text-lg font-bold text-blue-950">{title}</h2>
+        <p className="text-sm text-slate-500">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, required, hint, children }) {
   return (
     <div className="min-w-0">
-      <label className="mb-2 block text-sm font-medium text-slate-700">
-        {label}
-        {required && <Req />}
+      <label className="mb-2 flex items-center justify-between text-sm font-medium text-slate-700">
+        <span>
+          {label}
+          {required && <span className="text-red-500"> *</span>}
+        </span>
+        {hint && <span className="text-xs font-normal text-slate-400">{hint}</span>}
       </label>
       {children}
     </div>
@@ -25,7 +62,9 @@ function Field({ label, required, children }) {
 function Stat({ icon: Icon, label, value }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <Icon className="h-6 w-6 shrink-0 text-blue-600" strokeWidth={1.6} />
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+        <Icon className="h-5 w-5 text-blue-600" strokeWidth={1.7} />
+      </span>
       <div className="min-w-0">
         <div className="text-xs text-slate-500">{label}</div>
         <div className="truncate text-sm font-semibold text-slate-900" title={String(value)}>{value}</div>
@@ -34,13 +73,10 @@ function Stat({ icon: Icon, label, value }) {
   );
 }
 
-const formatSize = (bytes) =>
-  bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-
 /* ---------- Product images: upload (multiple), drag & drop, or take a photo ---------- */
 function ProductImagesField({ images, onChange }) {
   const fileRef = useRef(null);
-  const captureRef = useRef(null); // fallback: opens the native camera on phones
+  const captureRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const imagesRef = useRef(images);
@@ -93,7 +129,6 @@ function ProductImagesField({ images, onChange }) {
     streamRef.current = null;
   };
 
-  // Start / stop the webcam when the camera dialog opens / closes
   useEffect(() => {
     if (!camOpen) return;
     let cancelled = false;
@@ -110,7 +145,6 @@ function ProductImagesField({ images, onChange }) {
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch {
-        // No camera access: close the dialog and fall back to the native capture input
         setCamOpen(false);
         captureRef.current?.click();
       }
@@ -124,20 +158,14 @@ function ProductImagesField({ images, onChange }) {
   const full = images.length >= MAX_IMAGES;
 
   const openCamera = () => {
-    if (full) {
-      setError(`You can add up to ${MAX_IMAGES} images.`);
-      return;
-    }
+    if (full) return setError(`You can add up to ${MAX_IMAGES} images.`);
     setError("");
     if (navigator.mediaDevices?.getUserMedia) setCamOpen(true);
     else captureRef.current?.click();
   };
 
   const openPicker = () => {
-    if (full) {
-      setError(`You can add up to ${MAX_IMAGES} images.`);
-      return;
-    }
+    if (full) return setError(`You can add up to ${MAX_IMAGES} images.`);
     fileRef.current?.click();
   };
 
@@ -166,7 +194,7 @@ function ProductImagesField({ images, onChange }) {
   };
 
   const btn =
-    "inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors";
+    "inline-flex items-center justify-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-medium transition-colors";
   const hasImages = images.length > 0;
 
   return (
@@ -178,11 +206,11 @@ function ProductImagesField({ images, onChange }) {
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`flex flex-col items-center gap-3 rounded-lg border-2 border-dashed px-4 text-center transition-colors ${hasImages ? "py-4" : "py-6"
+        className={`flex flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 text-center transition-colors ${hasImages ? "py-4" : "py-7"
           } ${dragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50/60"}`}
       >
         {!hasImages && (
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
             <ImageIcon className="h-6 w-6" strokeWidth={1.6} />
           </span>
         )}
@@ -204,13 +232,17 @@ function ProductImagesField({ images, onChange }) {
         </div>
       </div>
 
-      {error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 flex items-center gap-1.5 text-xs text-red-600">
+          <AlertCircle className="h-3.5 w-3.5" /> {error}
+        </p>
+      )}
 
       {hasImages && (
-        <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4">
+        <ul className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-6">
           {images.map((img) => (
             <li key={img.id} className="min-w-0">
-              <div className="relative aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+              <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
                 <img src={img.url} alt={img.name} className="h-full w-full object-cover" />
                 <button
                   type="button"
@@ -230,7 +262,7 @@ function ProductImagesField({ images, onChange }) {
       {camOpen && (
         <div role="dialog" aria-modal="true" aria-label="Take a product photo" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
           <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5">
               <h3 className="text-sm font-bold text-blue-950">Take product photo</h3>
               <button type="button" onClick={() => setCamOpen(false)} aria-label="Close camera" className="text-slate-500 hover:text-slate-800">
                 <X className="h-5 w-5" />
@@ -259,9 +291,11 @@ function ImageGallery({ images }) {
 
   if (!images.length) {
     return (
-      <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center sm:h-72">
-        <ImageIcon className="h-8 w-8 text-slate-400" strokeWidth={1.4} />
-        <p className="text-sm text-slate-500">Product photos will appear here once you add them.</p>
+      <div className="flex h-56 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center sm:h-64">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
+          <ImageIcon className="h-6 w-6 text-slate-400" strokeWidth={1.5} />
+        </span>
+        <p className="px-6 text-sm text-slate-500">Product photos will appear here once you add them.</p>
       </div>
     );
   }
@@ -269,12 +303,8 @@ function ImageGallery({ images }) {
   const current = images[index];
   return (
     <div>
-      <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
-        <img
-          src={current.url}
-          alt={current.name}
-          className="h-64 w-full object-contain sm:h-80"
-        />
+      <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+        <img src={current.url} alt={current.name} className="h-64 w-full object-contain sm:h-72" />
         <span className="absolute bottom-2 right-2 rounded-full bg-slate-900/70 px-2.5 py-1 text-xs text-white">
           {index + 1} / {images.length}
         </span>
@@ -292,7 +322,7 @@ function ImageGallery({ images }) {
               onClick={() => setActive(i)}
               aria-label={`Show ${img.name}`}
               aria-current={i === index}
-              className={`h-16 w-16 shrink-0 overflow-hidden rounded-md border-2 sm:h-20 sm:w-20 ${i === index ? "border-blue-600" : "border-transparent opacity-70 hover:opacity-100"
+              className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 sm:h-[72px] sm:w-[72px] ${i === index ? "border-blue-600" : "border-transparent opacity-70 hover:opacity-100"
                 }`}
             >
               <img src={img.url} alt="" className="h-full w-full object-cover" />
@@ -304,16 +334,46 @@ function ImageGallery({ images }) {
   );
 }
 
+/* ---------- Page ---------- */
 export default function ParcelDetails() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState("Electronics");
-  const [count, setCount] = useState(10);
+  const [count, setCount] = useState(1);
   const [images, setImages] = useState([]); // [{ id, file, url, name, size }]
-  const [desc, setDesc] = useState("Electronic equipment - Handle with care.");
-  const [parcels, setParcels] = useState([]); // saved parcels shown in the table
+  const [desc, setDesc] = useState("");
+  const [parcels, setParcels] = useState([]);
   const [formError, setFormError] = useState("");
+  const [pageError, setPageError] = useState("");
+  const { pickup, destination } = location.state || {};
 
-  // Save the current form as a parcel, then clear the form for the next one
+  const totalPackages = parcels.reduce((sum, p) => sum + p.qty, 0);
+  const TypeIcon = TYPE_ICONS[type] || Box;
+
+  const createShipment = async () => {
+    if (!pickup || !destination) {
+      setPageError("Pickup and delivery locations are missing. Go back and enter them first.");
+      return;
+    }
+    if (!parcels.length) {
+      setPageError("Add at least one parcel before finding trucks.");
+      return;
+    }
+
+    setSubmitting(true);
+    setPageError("");
+    try {
+      const response = await shipmentAPI.create({ pickup, destination });
+      navigate("/Find", { state: { shipment: response.data } });
+    } catch (error) {
+      setPageError(error.message || "Could not create shipment. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const addParcel = () => {
     if (!name.trim()) {
       setFormError("Enter a product name to add this parcel.");
@@ -328,13 +388,13 @@ export default function ParcelDetails() {
     setImages([]);
     setDesc("");
     setFormError("");
+    setPageError("");
   };
 
-  // Move a saved parcel back into the form so it can be changed
   const editParcel = (id) => {
     const p = parcels.find((x) => x.id === id);
     if (!p) return;
-    images.forEach((i) => URL.revokeObjectURL(i.url)); // release unsaved photos in the form
+    images.forEach((i) => URL.revokeObjectURL(i.url));
     setName(p.name);
     setType(p.type);
     setCount(p.qty);
@@ -350,7 +410,6 @@ export default function ParcelDetails() {
     setParcels((list) => list.filter((x) => x.id !== id));
   };
 
-  // Release preview URLs when the page unmounts
   const imagesRef = useRef(images);
   const parcelsRef = useRef(parcels);
   imagesRef.current = images;
@@ -363,28 +422,25 @@ export default function ParcelDetails() {
     []
   );
 
+  const card = "min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7";
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      <main className="mx-auto max-w-7xl p-4 sm:p-6">
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-blue-950 sm:text-3xl">Parcel Details</h1>
+      {/* Same page padding as the Shipment page */}
+      <main className="w-full px-7 pb-8 pt-10">
+        <h1 className="text-3xl font-extrabold tracking-tight text-blue-950">Parcel Details</h1>
         <p className="mt-1 text-slate-600">
           Enter information about your parcels, including weight, size, and type.
         </p>
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          {/* Parcel information */}
-          <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-            <div className="flex items-start gap-3">
-              <Package className="mt-0.5 h-7 w-7 shrink-0 text-orange-500" strokeWidth={1.6} />
-              <div>
-                <h2 className="text-base font-bold text-blue-950">Parcel Information</h2>
-                <p className="text-sm text-slate-500">Add details about your shipment to find the best trucks.</p>
-              </div>
-            </div>
 
-            {/* Product name */}
-            <div className="mt-6">
-              <Field label="Product Name" required>
-                <div className="flex h-11 items-stretch overflow-hidden rounded-lg border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+        <div className="mt-7 grid items-start gap-7 lg:grid-cols-2">
+          {/* ---------------- Parcel information ---------------- */}
+          <section className={card}>
+            <SectionHeader title="Parcel Information" subtitle="Add details about your shipment to find the best trucks." />
+
+            <div className="mt-7">
+              <Field label="Product Name" required hint={`${name.length}/100`}>
+                <div className={inputShell}>
                   <span className="flex w-10 shrink-0 items-center justify-center text-slate-500">
                     <Tag className="h-4 w-4" />
                   </span>
@@ -399,28 +455,32 @@ export default function ParcelDetails() {
               </Field>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-[1.1fr_1fr]">
+            <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <Field label="Parcel Type" required>
-                <div className="relative flex h-11 items-center rounded-lg border border-slate-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
-                  <Box className="pointer-events-none absolute left-3 h-4 w-4 text-slate-500" />
+                <div className={`relative ${inputShell}`}>
+                  {/* Icon cell: changes with the selected type */}
+                  <span className="flex w-11 shrink-0 items-center justify-center border-r border-blue-100 bg-blue-50 text-blue-600">
+                    <TypeIcon className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                  </span>
                   <select
+                    id="parcel-type"
                     value={type}
                     onChange={(e) => setType(e.target.value)}
-                    className="h-full w-full appearance-none rounded-lg bg-transparent pl-10 pr-9 text-sm outline-none"
+                    className="h-full min-w-0 flex-1 cursor-pointer appearance-none bg-transparent pl-3 pr-10 text-sm font-medium text-slate-800 outline-none"
                   >
-                    {PARCEL_TYPES.map((t) => <option key={t}>{t}</option>)}
+                    {PARCEL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-slate-500" />
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 </div>
               </Field>
 
               <Field label="Number of Packages" required>
-                <div className="flex h-11 items-stretch overflow-hidden rounded-lg border border-slate-200 bg-white">
-                  <span className="flex w-10 items-center justify-center text-slate-400"><Box className="h-4 w-4" /></span>
+                <div className={inputShell}>
                   <button
+                    type="button"
                     onClick={() => setCount((c) => Math.max(1, c - 1))}
                     aria-label="Decrease packages"
-                    className="w-11 border-x border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className="w-11 shrink-0 border-r border-slate-200 text-slate-600 hover:bg-slate-50"
                   >
                     <Minus className="mx-auto h-4 w-4" />
                   </button>
@@ -428,12 +488,14 @@ export default function ParcelDetails() {
                     value={count}
                     onChange={(e) => setCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
                     inputMode="numeric"
-                    className="min-w-0 flex-1 text-center text-sm outline-none"
+                    aria-label="Number of packages"
+                    className="min-w-0 flex-1 bg-transparent text-center text-sm font-medium outline-none"
                   />
                   <button
+                    type="button"
                     onClick={() => setCount((c) => c + 1)}
                     aria-label="Increase packages"
-                    className="w-11 border-l border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className="w-11 shrink-0 border-l border-slate-200 text-slate-600 hover:bg-slate-50"
                   >
                     <Plus className="mx-auto h-4 w-4" />
                   </button>
@@ -441,71 +503,80 @@ export default function ParcelDetails() {
               </Field>
             </div>
 
-            {/* Product images */}
-            <div className="mt-6">
+            <div className="mt-7">
               <Field label="Product Images (Optional)">
                 <ProductImagesField images={images} onChange={setImages} />
               </Field>
             </div>
 
-            <div className="mt-6">
-              <Field label="Description (Optional)">
-                <div className="flex rounded-lg border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+            <div className="mt-7">
+              <Field label="Description (Optional)" hint={`${desc.length}/${MAX_DESC}`}>
+                <div className="flex rounded-lg border border-slate-200 bg-white transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
                   <span className="px-3 pt-3 text-slate-500"><ClipboardList className="h-4 w-4" /></span>
                   <textarea
                     rows={4}
                     maxLength={MAX_DESC}
                     value={desc}
                     onChange={(e) => setDesc(e.target.value)}
-                    className="min-w-0 flex-1 resize-none rounded-lg bg-transparent py-3 pr-3 text-sm outline-none"
+                    placeholder="Handling instructions, fragile items, dimensions..."
+                    className="min-w-0 flex-1 resize-none rounded-lg bg-transparent py-3 pr-3 text-sm outline-none placeholder:text-slate-400"
                   />
                 </div>
-                <div className="mt-1 text-right text-xs text-slate-500">{desc.length}/{MAX_DESC}</div>
               </Field>
             </div>
 
-            <div className="mt-6 flex flex-col gap-2 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p role="alert" className="min-h-[1rem] text-xs text-red-600">{formError}</p>
+            <div className="mt-7 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+              <p role="alert" className="flex min-h-[1.25rem] items-center gap-1.5 text-xs text-red-600">
+                {formError && <><AlertCircle className="h-3.5 w-3.5" /> {formError}</>}
+              </p>
               <button
                 type="button"
                 onClick={addParcel}
-                className="flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-800"
+                className="flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
               >
                 <Plus className="h-4 w-4" /> Add Parcel
               </button>
             </div>
           </section>
 
-          {/* Summary */}
-          <aside className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-            <div className="flex items-start gap-3">
-              <Package className="mt-0.5 h-7 w-7 shrink-0 text-orange-500" strokeWidth={1.6} />
-              <div>
-                <h2 className="text-base font-bold text-blue-950">Shipment Summary</h2>
-                <p className="text-sm text-slate-500">Quick overview of your shipment details.</p>
-              </div>
-            </div>
+          {/* ---------------- Summary ---------------- */}
+          <aside className={card}>
+            <SectionHeader title="Shipment Summary" subtitle="Quick overview of your shipment details." />
 
-            {/* Product images (large) */}
-            <div className="mt-5">
+            {/* Route */}
+            {(pickup || destination) && (
+              <div className="mt-6 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                <MapPin className="h-4 w-4 shrink-0 text-blue-600" />
+                <span className="min-w-0 truncate font-medium text-slate-800" title={String(pickup || "")}>{pickup || "—"}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
+                <span className="min-w-0 truncate font-medium text-slate-800" title={String(destination || "")}>{destination || "—"}</span>
+              </div>
+            )}
+
+            <div className="mt-6">
               <ImageGallery images={images} />
             </div>
 
-            <div className="mt-6 rounded-lg bg-blue-50 p-4 sm:p-5">
+            <div className="mt-6 rounded-xl bg-blue-50 p-5">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Stat icon={Tag} label="Product Name" value={name.trim() || "Not added yet"} />
                 </div>
-                <Stat icon={Box} label="Parcel Type" value={type} />
+                <Stat icon={TypeIcon} label="Parcel Type" value={type} />
                 <Stat icon={Package} label="No. of Packages" value={count} />
               </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-7 flex items-center justify-between">
               <h3 className="text-sm font-bold text-blue-950">Package Items ({parcels.length})</h3>
+              {parcels.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                  <Layers className="h-3.5 w-3.5" /> {totalPackages} packages total
+                </span>
+              )}
             </div>
 
-            <div className="mt-3 overflow-x-auto">
+            <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
               <table className="w-full min-w-[460px] text-left text-sm">
                 <thead>
                   <tr className="bg-slate-50 text-xs font-medium text-slate-600">
@@ -516,7 +587,7 @@ export default function ParcelDetails() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {parcels.map((p, i) => (
-                    <tr key={p.id}>
+                    <tr key={p.id} className="hover:bg-slate-50/60">
                       <td className="px-3 py-3 text-slate-600">{i + 1}</td>
                       <td className="px-3 py-3">
                         {p.images.length ? (
@@ -534,15 +605,15 @@ export default function ParcelDetails() {
                           </span>
                         )}
                       </td>
-                      <td className="max-w-[180px] truncate px-3 py-3" title={p.name}>{p.name}</td>
-                      <td className="whitespace-nowrap px-3 py-3">{p.type}</td>
+                      <td className="max-w-[180px] truncate px-3 py-3 font-medium text-slate-800" title={p.name}>{p.name}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-slate-600">{p.type}</td>
                       <td className="px-3 py-3">{p.qty}</td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-3">
-                          <button onClick={() => editParcel(p.id)} aria-label={`Edit ${p.name}`} className="text-blue-600 hover:text-blue-800">
+                          <button type="button" onClick={() => editParcel(p.id)} aria-label={`Edit ${p.name}`} className="text-blue-600 hover:text-blue-800">
                             <Pencil className="h-4 w-4" />
                           </button>
-                          <button onClick={() => removeParcel(p.id)} aria-label={`Delete ${p.name}`} className="text-slate-400 hover:text-red-500">
+                          <button type="button" onClick={() => removeParcel(p.id)} aria-label={`Delete ${p.name}`} className="text-slate-400 hover:text-red-500">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -551,7 +622,7 @@ export default function ParcelDetails() {
                   ))}
                   {parcels.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
+                      <td colSpan={6} className="px-3 py-8 text-center text-slate-500">
                         No parcels yet. Fill in the details and select Add Parcel.
                       </td>
                     </tr>
@@ -562,16 +633,32 @@ export default function ParcelDetails() {
           </aside>
         </div>
 
-        {/* Footer actions */}
-        <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-200 pt-5">
-          <button className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:px-6">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-          <button className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-3 text-sm font-medium text-white hover:bg-blue-800 sm:px-8">
-            Next: Find Trucks <ArrowRight className="h-4 w-4" />
-          </button>
+        {/* ---------------- Footer actions ---------------- */}
+        <div className="mt-7 border-t border-slate-200 pt-6">
+          {pageError && (
+            <p role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" /> {pageError}
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:px-6"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
+            <button
+              type="button"
+              onClick={createShipment}
+              disabled={submitting}
+              className="flex items-center gap-2 rounded-lg bg-blue-700 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60 sm:px-8"
+            >
+              {submitting ? "Creating shipment..." : "Next: Find Trucks"} <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </main>
     </div>
   );
-} 
+}

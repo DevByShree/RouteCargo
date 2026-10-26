@@ -6,6 +6,7 @@ require("dotenv").config();
 
 const authRoutes = require("./src/routes/auth");
 
+
 const app = express();
 
 // CORS — allow frontend origin with credentials (httpOnly cookies)
@@ -23,9 +24,16 @@ app.use(cookieParser());
 app.get("/", (req, res) => {
     res.send("RouteCargo Backend is running!");
 });
+// User Side
+const ShipmentRoutes = require("./src/routes/shipment")
+const ParcelRoutes = require("./src/routes/parcel")
 
 // Auth routes
 app.use("/api/auth", authRoutes);
+app.use("/api/shipments", ShipmentRoutes);
+
+app.use("/api/parcel", ParcelRoutes);
+app.use("/api/parcels", require("./src/routes/parcel"));
 
 // Global error handler
 app.use((err, req, res, next) => {

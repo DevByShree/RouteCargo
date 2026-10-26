@@ -7,6 +7,7 @@ router.post("/signup", authController.signup);
 router.post("/signin", authController.signin);
 router.get("/me", authenticate, authController.me);
 router.post("/signout", authenticate, authController.signout);
+router.put("/me", authenticate, authController.updateMe);
 
 // Driver-only example route (placeholder for future driver UI)
 router.get(

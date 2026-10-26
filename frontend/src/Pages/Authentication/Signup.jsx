@@ -8,7 +8,7 @@ const Signup = () => {
         name: "",
         email: "",
         password: "",
-        role: "customer",
+        role: "user",
     });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -62,92 +62,92 @@ const Signup = () => {
                 <form onSubmit={handleSubmit} className="space-y-5">
 
                     {/* Full Name */}
-                <div className="mb-5">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name
-                    </label>
-
-                    <input
-                        type="text"
-                        name="name"
-                        value={form.name}
-                        onChange={handleChange}
-                        placeholder="Enter your full name"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
-                    />
-                </div>
-
-                {/* Email */}
-                <div className="mb-5">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
-                    </label>
-
-                    <input
-                        type="email"
-                        name="email"
-                        value={form.email}
-                        onChange={handleChange}
-                        placeholder="Enter your email"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
-                    />
-                </div>
-
-                {/* Password */}
-                <div className="mb-5">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Password
-                    </label>
-
-                    <input
-                        type="password"
-                        name="password"
-                        value={form.password}
-                        onChange={handleChange}
-                        placeholder="Enter your password"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
-                    />
-                </div>
-
-                {/* Role */}
-                <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Register as
-                    </label>
-                    <div className="flex gap-3">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="role"
-                                value="customer"
-                                checked={form.role === "customer"}
-                                onChange={handleChange}
-                                className="form-radio text-blue-600"
-                            />
-                            Customer
+                    <div className="mb-5">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Full Name
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="role"
-                                value="driver"
-                                checked={form.role === "driver"}
-                                onChange={handleChange}
-                                className="form-radio text-blue-600"
-                            />
-                            Driver
-                        </label>
+
+                        <input
+                            type="text"
+                            name="name"
+                            value={form.name}
+                            onChange={handleChange}
+                            placeholder="Enter your full name"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                        />
                     </div>
-                </div>
 
-                {/* Signup Button */}
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className={`w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300`}
-                >
-                    {loading ? "Creating account..." : "Create Account"}
-                </button>
+                    {/* Email */}
+                    <div className="mb-5">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Email
+                        </label>
+
+                        <input
+                            type="email"
+                            name="email"
+                            value={form.email}
+                            onChange={handleChange}
+                            placeholder="Enter your email"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    {/* Password */}
+                    <div className="mb-5">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Password
+                        </label>
+
+                        <input
+                            type="password"
+                            name="password"
+                            value={form.password}
+                            onChange={handleChange}
+                            placeholder="Enter your password"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    {/* Role */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Register as
+                        </label>
+                        <div className="flex gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value="user"
+                                    checked={form.role === "user"}
+                                    onChange={handleChange}
+                                    className="form-radio text-blue-600"
+                                />
+                                user
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value="driver"
+                                    checked={form.role === "driver"}
+                                    onChange={handleChange}
+                                    className="form-radio text-blue-600"
+                                />
+                                Driver
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Signup Button */}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className={`w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300`}
+                    >
+                        {loading ? "Creating account..." : "Create Account"}
+                    </button>
 
                 </form>
 
