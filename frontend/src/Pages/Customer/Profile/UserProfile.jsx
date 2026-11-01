@@ -238,8 +238,8 @@ export default function Profile() {
                                                 <>
                                                     <div
                                                         className={`flex h-11 items-center gap-2 rounded-lg border bg-white px-3 transition focus-within:ring-2 ${err
-                                                                ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
-                                                                : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"
+                                                            ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
+                                                            : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"
                                                             }`}
                                                     >
                                                         <Icon className="h-4 w-4 shrink-0 text-slate-500" />

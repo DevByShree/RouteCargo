@@ -3,20 +3,30 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
     House, FilePlus2, Truck, Package, CalendarDays, CircleDot, CreditCard,
     MapPin, UserRound, ChevronLeft, ChevronRight, Menu, X, LogOut,
+    PlusSquare,
+    ListChecks,
+    User,
 } from "lucide-react";
 import { authAPI, removeToken } from "../API/api";
 
-const menuItems = [
-    { name: "Dashboard", path: "/dashboard", icon: House },
-    { name: "Create Shipment", path: "/shipment", icon: FilePlus2 },
-    { name: "Parcel Details", path: "/parcel", icon: Package },
-    { name: "Find Trucks", path: "/Find", icon: Truck },
-    { name: "My Bookings", path: "/Booking", icon: CalendarDays },
-    { name: "Tracking", path: "/track", icon: CircleDot },
-    { name: "Payments", path: "/payment", icon: CreditCard },
-    { name: "Saved Addresses", path: "/Address", icon: MapPin },
-    { name: "Profile", path: "/profile", icon: UserRound },
-    // Optional: add `badge: 3` to any item to show a count
+const userMenuItems = [
+    { name: "Dashboard", path: "/user", icon: House },
+    { name: "Create Shipment", path: "/user/shipment", icon: FilePlus2 },
+    { name: "Parcel Details", path: "/user/parcel", icon: Package },
+    { name: "Find Trucks", path: "/user/Find", icon: Truck },
+    { name: "My Bookings", path: "/user/Booking", icon: CalendarDays },
+    { name: "Tracking", path: "/user/track", icon: CircleDot },
+    { name: "Payments", path: "/user/payment", icon: CreditCard },
+    { name: "Saved Addresses", path: "/user/Address", icon: MapPin },
+    { name: "Profile", path: "/user/profile", icon: UserRound },
+];
+
+const driverMenuItems = [
+    { name: "Dashboard", path: "/driver", icon: House, },
+    { name: "Raise Request", path: "/driver/raise-request", icon: PlusSquare, },
+    { name: "My Requests", path: "/driver/my-requests", icon: ListChecks, },
+    { name: "Vehicles", path: "/driver/vehicles", icon: Truck, },
+    { name: "Profile", path: "/driver/profile", icon: User, },
 ];
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -44,12 +54,17 @@ function Brand({ collapsed }) {
 }
 
 export default function Sidebar() {
+
     const navigate = useNavigate();
     const location = useLocation();
 
     const [collapsed, setCollapsed] = useState(readCollapsed); // desktop: icons only
     const [mobileOpen, setMobileOpen] = useState(false); // mobile: off-canvas drawer
     const [loggingOut, setLoggingOut] = useState(false);
+
+    const role = localStorage.getItem("role")?.toLowerCase();
+
+    const menuItems = role === "driver" ? driverMenuItems : userMenuItems;
 
     useEffect(() => {
         try {
