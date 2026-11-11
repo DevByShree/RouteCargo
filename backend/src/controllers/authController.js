@@ -1,121 +1,127 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = "7d";
-
-const COOKIE_OPTIONS = {
+const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
-// Generate JWT and set it as an httpOnly cookie
-const sendToken = (user, statusCode, res) => {
-    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN,
-    });
+const publicUser = u => ({
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role
+});
 
-    res.status(statusCode).cookie("token", token, COOKIE_OPTIONS).json({
-        success: true,
-        token,
-        user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-        },
-    });
-};
+function sendToken(user, status, res) {
+    const token = jwt.sign({
+        id: user._id,
+        role: user.role
+    }, process.env.JWT_SECRET,
+        { expiresIn: '7d' });
 
-// POST /api/auth/signup
+    return res.status(status)
+        .cookie('token', token, cookieOptions)
+        .json({
+            success: true,
+            token,
+            user: publicUser(user)
+        });
+}
+
 exports.signup = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
 
-        if (!name || !email || !password) {
-            return res
-                .status(400)
-                .json({ success: false, message: "Name, email, and password are required" });
-        }
+        let { name, email, password, role } = req.body;
 
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-            return res
-                .status(400)
-                .json({ success: false, message: "Email already registered" });
-        }
+        name = String(name || '').trim();
+        email = String(email || '').trim().toLowerCase();
+
+        if (!name || !email || !password)
+            return res.status(400).json({
+                success: false, message: 'Name, email, and password are required'
+            });
+
+        if (String(password).length < 6)
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters'
+            });
+        if (await User.findOne({ email }))
+            return res.status(409).json({
+                success: false,
+                message: 'Email already registered'
+            });
 
         const user = await User.create({
             name,
             email,
             password,
-            role: role === "driver" ? "driver" : "customer",
+            role: role === 'driver' ? 'driver' : 'customer'
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
-            message: "Account created successfully. Please sign in.",
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-            },
+            message: 'Account created successfully. Please sign in.',
+            user: publicUser(user)
         });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+    }
+    catch (e) {
+        if (e.code === 11000)
+            return res.status(409).json({
+                success: false,
+                message: 'Email already registered'
+            });
+        return res.status(500).json({
+            success: false,
+            message: 'Unable to create account'
+        });
     }
 };
 
-// POST /api/auth/signin
+
 exports.signin = async (req, res) => {
     try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res
-                .status(400)
-                .json({ success: false, message: "Email and password are required" });
-        }
-
-        const user = await User.findOne({ email }).select("+password");
-        if (!user) {
-            return res
-                .status(404)
-                .json({ success: false, message: "User does not exist" });
-        }
-
-        const isMatch = await user.matchPassword(password);
-        if (!isMatch) {
-            return res
-                .status(401)
-                .json({ success: false, message: "Invalid email or password" });
-        }
-
-        sendToken(user, 200, res);
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        const email = String(req.body.email || '').trim().toLowerCase(),
+            password = req.body.password; if (!email || !password)
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        const user = await User.findOne({ email }).select('+password');
+        if (!user || !(await user.matchPassword(password)))
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        return sendToken(user, 200, res);
+    }
+    catch {
+        return res.status(500).json({
+            success: false,
+            message: 'Unable to sign in'
+        });
     }
 };
 
-// GET /api/auth/me — verify session cookie and return current user
 exports.me = async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res
-                .status(404)
-                .json({ success: false, message: "User not found" });
-        }
-        res.json({ success: true, user });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({
+        success: false,
+        message: 'User not found'
+    });
+    return res.json({
+        success: true,
+        user
+    });
 };
 
-// POST /api/auth/signout — clear the httpOnly cookie
-exports.signout = (req, res) => {
-    res.clearCookie("token").json({ success: true, message: "Signed out" });
-};
+exports.signout = (req, res) => res.clearCookie('token', {
+    httpOnly: true, secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+}).json({
+    success: true,
+    message: 'Signed out'
+});
