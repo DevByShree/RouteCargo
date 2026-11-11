@@ -1,4 +1,3 @@
-    import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authAPI } from "../../API/api";
@@ -36,7 +35,7 @@ const Signin = () => {
             if (res.user.role === "driver") {
                 navigate("/driver");
             } else {
-                navigate("/dashboard");
+                navigate("/user");
             }
         } catch (err) {
             setError(err.data?.message || "Sign in failed. Please try again.");
