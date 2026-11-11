@@ -19,6 +19,10 @@ function DashboardNavbar() {
     const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
     const containerRef = useRef(null);
 
+
+    const role = localStorage.getItem('role')
+    const profilerole = role === 'driver' ? '/driver' : '/user'
+
     // Load the logged-in user from the existing auth API
     useEffect(() => {
         const loadUser = async () => {
@@ -185,7 +189,7 @@ function DashboardNavbar() {
                             <button
                                 type="button"
                                 role="menuitem"
-                                onClick={() => go("/profile")}
+                                onClick={() => go(`${profilerole}/profile`)}
                                 className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                             >
                                 <User className="h-4 w-4 text-slate-500" /> My Profile
@@ -198,7 +202,7 @@ function DashboardNavbar() {
                                 role="menuitem"
                                 onClick={handleLogout}
                                 className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-                            >
+                                >
                                 <LogOut className="h-4 w-4" /> Logout
                             </button>
                         </div>
