@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Truck,
@@ -18,83 +18,7 @@ import {
   CircleCheck,
   AlertCircle,
 } from "lucide-react";
-
-const TRUCKS_KEY = "routecargo_vehicles";
-const PROFILE_KEY = "routecargo_driver_profile";
-const REQUESTS_KEY = "routecargo_customer_requests";
-const CAPACITY_KEY = "routecargo_capacity_posts";
-
-const SAMPLE_TRUCKS = [
-  {
-    id: "truck-1",
-    name: "Truck 1",
-    number: "MH12AB1234",
-    type: "Tata 14 Wheeler",
-    capacity: 8,
-    capacityUnit: "tons",
-    fuelType: "Diesel",
-    available: true,
-  },
-  {
-    id: "truck-2",
-    name: "Truck 2",
-    number: "MH40XY5678",
-    type: "Ashok Leyland 16 Wheeler",
-    capacity: 15,
-    capacityUnit: "tons",
-    fuelType: "Diesel",
-    available: true,
-  },
-  {
-    id: "truck-3",
-    name: "Truck 3",
-    number: "RJ14CD9876",
-    type: "Eicher 12 Wheeler",
-    capacity: 10,
-    capacityUnit: "tons",
-    fuelType: "Diesel",
-    available: true,
-  },
-];
-
-const SAMPLE_REQUESTS = [
-  {
-    id: "CARGO-1001",
-    customerName: "Aarav Industries",
-    from: "Pune, Maharashtra",
-    to: "Mumbai, Maharashtra",
-    date: "2026-11-02",
-    loadType: "Industrial goods",
-    weight: 3.5,
-    unit: "tons",
-    amount: 18500,
-    status: "Pending",
-  },
-  {
-    id: "CARGO-1002",
-    customerName: "Neha Traders",
-    from: "Nashik, Maharashtra",
-    to: "Pimpri, Maharashtra",
-    date: "2026-11-04",
-    loadType: "Small goods",
-    weight: 850,
-    unit: "kg",
-    amount: 6200,
-    status: "Accepted",
-  },
-  {
-    id: "CARGO-1003",
-    customerName: "Metro Fabrication",
-    from: "Aurangabad, Maharashtra",
-    to: "Pune, Maharashtra",
-    date: "2026-11-06",
-    loadType: "Industrial goods",
-    weight: 5,
-    unit: "tons",
-    amount: 22000,
-    status: "In Transit",
-  },
-];
+import { driverApi } from "../../API/driverApi";
 
 const statusStyles = {
   Pending: "bg-amber-50 text-amber-700 ring-amber-200",
@@ -103,15 +27,6 @@ const statusStyles = {
   "In Transit": "bg-blue-50 text-blue-700 ring-blue-200",
   Completed: "bg-slate-100 text-slate-700 ring-slate-200",
   Available: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-};
-
-const readStorage = (key, fallback) => {
-  try {
-    const value = localStorage.getItem(key);
-    return value === null ? fallback : JSON.parse(value);
-  } catch {
-    return fallback;
-  }
 };
 
 const formatCurrency = (amount) =>
@@ -138,50 +53,24 @@ const formatDate = (date) => {
 export default function DriverDashboard() {
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState(() =>
-    readStorage(PROFILE_KEY, {})
-  );
-
-  const [trucks, setTrucks] = useState(() =>
-    readStorage(TRUCKS_KEY, SAMPLE_TRUCKS)
-  );
-
-  const [requests, setRequests] = useState(() =>
-    readStorage(REQUESTS_KEY, SAMPLE_REQUESTS)
-  );
-
-  const [capacityPosts, setCapacityPosts] = useState(() =>
-    readStorage(CAPACITY_KEY, [])
-  );
+  const [profile, setProfile] = useState({});
+  const [trucks, setTrucks] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [capacityPosts, setCapacityPosts] = useState([]);
+  const [loadError, setLoadError] = useState("");
 
   const [activeFilter, setActiveFilter] = useState("All");
 
-  const refreshDashboard = () => {
-    setProfile(readStorage(PROFILE_KEY, {}));
-    setTrucks(readStorage(TRUCKS_KEY, SAMPLE_TRUCKS));
-    setRequests(readStorage(REQUESTS_KEY, SAMPLE_REQUESTS));
-    setCapacityPosts(readStorage(CAPACITY_KEY, []));
-  };
+  const refreshDashboard = useCallback(async () => {
+    try {
+      const [nextProfile, nextTrucks, nextRequests, nextCapacity] = await Promise.all([driverApi.getProfile(), driverApi.listVehicles(), driverApi.listRequests(), driverApi.listCapacity()]);
+      setProfile(nextProfile || {}); setTrucks(nextTrucks); setRequests(nextRequests); setCapacityPosts(nextCapacity); setLoadError("");
+    } catch (error) { setLoadError(error.message); }
+  }, []);
 
   useEffect(() => {
-    const handleStorage = (event) => {
-      if (
-        !event.key ||
-        [
-          PROFILE_KEY,
-          TRUCKS_KEY,
-          REQUESTS_KEY,
-          CAPACITY_KEY,
-        ].includes(event.key)
-      ) {
-        refreshDashboard();
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+    refreshDashboard();
+  }, [refreshDashboard]);
 
   const availableTrucks = useMemo(
     () => trucks.filter((truck) => truck.available !== false),
@@ -243,7 +132,7 @@ export default function DriverDashboard() {
       description: "Review customer bookings",
       icon: Package,
       color: "bg-emerald-50 text-emerald-600",
-      action: () => navigate("/driver/requests"),
+      action: () => navigate("/driver/my-requests"),
     },
     {
       title: "My Profile",
@@ -294,6 +183,7 @@ export default function DriverDashboard() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
+        {loadError && <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{loadError}</div>}
         {/* Header */}
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
@@ -332,7 +222,7 @@ export default function DriverDashboard() {
         </header>
 
         {/* Profile summary */}
-        <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 p-5 text-white shadow-sm sm:p-7">
+        <section className="overflow-hidden rounded-2xl bg-linear-to-r from-slate-900 via-slate-800 to-blue-900 p-5 text-white shadow-sm sm:p-7">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-blue-100">
@@ -490,11 +380,10 @@ export default function DriverDashboard() {
                     </span>
 
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        truck.available === false
-                          ? "bg-slate-100 text-slate-500"
-                          : "bg-emerald-50 text-emerald-700"
-                      }`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${truck.available === false
+                        ? "bg-slate-100 text-slate-500"
+                        : "bg-emerald-50 text-emerald-700"
+                        }`}
                     >
                       {truck.available === false
                         ? "Unavailable"
@@ -610,7 +499,7 @@ export default function DriverDashboard() {
 
             <button
               type="button"
-              onClick={() => navigate("/driver/requests")}
+              onClick={() => navigate("/driver/my-requests")}
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Manage Requests
@@ -678,7 +567,7 @@ export default function DriverDashboard() {
 
             <button
               type="button"
-              onClick={() => navigate("/driver/requests")}
+              onClick={() => navigate("/driver/my-requests")}
               className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:self-center"
             >
               View All
@@ -693,11 +582,10 @@ export default function DriverDashboard() {
                   type="button"
                   key={status}
                   onClick={() => setActiveFilter(status)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                    activeFilter === status
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${activeFilter === status
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                 >
                   {status} ({requestCounts[status]})
                 </button>
@@ -733,10 +621,9 @@ export default function DriverDashboard() {
                         </span>
 
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
-                            statusStyles[request.status] ||
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${statusStyles[request.status] ||
                             statusStyles.Pending
-                          }`}
+                            }`}
                         >
                           {request.status}
                         </span>
@@ -781,7 +668,7 @@ export default function DriverDashboard() {
 
                     <button
                       type="button"
-                      onClick={() => navigate("/driver/requests")}
+                      onClick={() => navigate("/driver/my-requests")}
                       className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                     >
                       View Request
@@ -795,7 +682,7 @@ export default function DriverDashboard() {
 
           <div className="border-t border-slate-100 px-5 py-3 sm:px-6">
             <p className="text-xs text-slate-400">
-              Dashboard data is currently read from this browser's localStorage.
+              Dashboard data is loaded from your account.
               Connect your backend API to share live data across accounts.
             </p>
           </div>
@@ -860,9 +747,8 @@ export default function DriverDashboard() {
                     </div>
 
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        statusStyles[post.status] || statusStyles.Available
-                      }`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[post.status] || statusStyles.Available
+                        }`}
                     >
                       {post.status || "Available"}
                     </span>
@@ -917,6 +803,7 @@ export default function DriverDashboard() {
         </section>
 
         {/* Footer */}
+        {/*
         <footer className="flex flex-col justify-between gap-2 border-t border-slate-200 py-4 text-xs text-slate-400 sm:flex-row sm:items-center">
           <p>© {new Date().getFullYear()} RouteCargo Driver Portal</p>
           <button
@@ -927,6 +814,7 @@ export default function DriverDashboard() {
             Manage Driver Profile
           </button>
         </footer>
+          */}
       </div>
     </main>
   );

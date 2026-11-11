@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import tc from "../../../assets/tc.png"
 import ind from "../../../assets/ind.png"
+import { driverApi } from "../../../API/driverApi";
 
 function Find({ formData }) {
 
     const [showFilters, setShowFilters] = useState(false);
+    const [posts, setPosts] = useState([]);
+    const [error, setError] = useState("");
+    useEffect(() => { driverApi.listPublicCapacity().then(setPosts).catch(e => setError(e.message)); }, []);
 
     const {
         pickup = {
@@ -27,28 +31,26 @@ function Find({ formData }) {
         estimatedTime = "3-4 Hrs",
     } = formData || {};
 
-    const trucks = [
-        {
-            id: 1,
-            image: tc,
-            name: "Ramesh Transport",
-            verified: true,
-            matchPercent: 92,
-            matchLabel: "Route Match",
-            vehicle: "Tata 10 Ton (Closed Body)",
-            vehicleNo: "MH12 AB 1234",
-            route: `${pickup.location.split(",")[0]} → ${delivery.location.split(",")[0]}`,
-            depTime: `Dep: ${pickup.date} ${pickup.time}`,
-            arrTime: `Arr: ${delivery.date} ${delivery.time}`,
-            capacity: "3.5 / 10 Ton",
-            capacityPercent: 35,
-            price: "₹ 8,500",
-            priceNote: "₹ 2,428 per Ton",
-            driver: "Ramesh Kumar",
-            rating: 4.8,
-            reviews: 120,
-        },
-    ];
+    const trucks = posts.map(post => ({
+        id: post.id,
+        image: tc,
+        name: post.companyName || post.contactName || "RouteCargo Driver",
+        verified: false,
+        matchPercent: 0,
+        matchLabel: "Published trip",
+        vehicle: post.vehicleType || post.truckName || "Truck",
+        vehicleNo: post.truckNumber || "",
+        route: `${post.from} → ${post.to}`,
+        depTime: `Travel date: ${post.date}`,
+        arrTime: `Accepts: ${(post.loadTypes || []).join(", ")}`,
+        capacity: `${post.availableCapacity} ${post.capacityUnit} available`,
+        capacityPercent: post.totalCapacity ? Math.min(100, Number(post.availableCapacity) / Number(post.totalCapacity) * 100) : 100,
+        price: "Contact driver",
+        priceNote: post.contactPhone || "Contact details available after sign in",
+        driver: post.contactName || post.companyName || "Driver",
+        rating: "—",
+        reviews: 0,
+    }));
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50 font-sans">
@@ -61,6 +63,7 @@ function Find({ formData }) {
                 <span className="text-gray-500 text-sm">
                     We found {trucks.length} trucks travelling on your route or nearby routes
                 </span>
+                {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
             </div>
             <button
                 onClick={() => setShowFilters((s) => !s)}
@@ -94,13 +97,8 @@ function Find({ formData }) {
                             <div className="flex-1 w-full flex flex-col gap-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-1.5">
                                     <span className="font-bold text-sm">{truck.name}</span>
-                                    {truck.verified && (
-                                        <span className="text-xs text-green-600 bg-green-100 rounded px-1.5 py-0.5">
-                                            ✓ Verified
-                                        </span>
-                                    )}
                                     <span className="text-xs text-blue-600 bg-blue-100 rounded px-1.5 py-0.5 md:ml-auto">
-                                        {truck.matchPercent}% {truck.matchLabel}
+                                        {truck.matchLabel}
                                     </span>
                                 </div>
 

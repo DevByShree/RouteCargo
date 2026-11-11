@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 const Profile = require('../models/DriverProfile');
 const Vehicle = require('../models/Vehicle');
 const Request = require('../models/CargoRequest');
@@ -6,7 +8,10 @@ const Capacity = require('../models/CapacityPost');
 
 const ok = (res, data, status = 200, message) => res.status(status).json({ success: true, ...(message ? { message } : {}), data });
 const valid = id => mongoose.isValidObjectId(id);
-const fileInfo = f => ({ url: `/uploads/${f.filename}`, originalName: f.originalname, mimeType: f.mimetype, size: f.size });
+const fileInfo = f => {
+    const category = f.fieldname === 'photos' ? 'photos' : 'documents';
+    return { url: `/uploads/vehicles/${category}/${f.filename}`, originalName: f.originalname, mimeType: f.mimetype, size: f.size };
+};
 
 exports.getProfile = async (req, res) => ok(res, await Profile.findOne({ userId: req.user.id }));
 
@@ -89,7 +94,25 @@ exports.deleteVehicle = async (req, res) => {
 
 exports.uploadFiles = async (req, res) => {
     if (!valid(req.params.id))
-        return res.status(400).json({ success: false, message: 'Invalid vehicle ID' }); const v = await Vehicle.findOne({ _id: req.params.id, driverId: req.user.id }); if (!v) return res.status(404).json({ success: false, message: 'Vehicle not found' }); v.photos.push(...(req.files.photos || []).map(fileInfo)); v.documents.push(...(req.files.documents || []).map(fileInfo)); await v.save(); return ok(res, v, 200, 'Files uploaded');
+        return res.status(400).json({ success: false, message: 'Invalid vehicle ID' }); const v = await Vehicle.findOne({ _id: req.params.id, driverId: req.user.id }); if (!v) return res.status(404).json({ success: false, message: 'Vehicle not found' }); v.photos.push(...(req.files?.photos || []).map(fileInfo)); v.documents.push(...(req.files?.documents || []).map(fileInfo)); await v.save(); return ok(res, v, 200, 'Files uploaded');
+};
+
+exports.removeVehicleFile = async (req, res) => {
+    if (!valid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid vehicle ID' });
+    const vehicle = await Vehicle.findOne({ _id: req.params.id, driverId: req.user.id });
+    if (!vehicle) return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    const fileName = path.basename(req.params.fileName);
+    const file = [...vehicle.photos, ...vehicle.documents].find(item => path.basename(item.url) === fileName);
+    if (!file) return res.status(404).json({ success: false, message: 'Vehicle file not found' });
+    const category = vehicle.photos.some(item => path.basename(item.url) === fileName) ? 'photos' : 'documents';
+    const uploadRoot = path.resolve(__dirname, '../../uploads');
+    const storedPath = path.resolve(uploadRoot, file.url.replace(/^\/uploads\//, ''));
+    if (!storedPath.startsWith(`${uploadRoot}${path.sep}`)) return res.status(400).json({ success: false, message: 'Invalid vehicle file path' });
+    try { fs.unlinkSync(storedPath); } catch {}
+    if (category === 'photos') vehicle.photos = vehicle.photos.filter(item => path.basename(item.url) !== fileName);
+    else vehicle.documents = vehicle.documents.filter(item => path.basename(item.url) !== fileName);
+    await vehicle.save();
+    return ok(res, vehicle, 200, 'Vehicle file removed');
 };
 
 exports.listRequests = async (req, res) => ok(res, await Request.find({ $or: [{ driverId: req.user.id }, { driverId: null }], status: { $nin: ['cancelled'] } }).populate('customerId', 'name email').sort({ createdAt: -1 }));
@@ -101,8 +124,10 @@ exports.updateRequest = async (req, res) => {
 
 exports.listCapacity = async (req, res) => ok(res, await Capacity.find({ driverId: req.user.id }).populate('vehicleId').sort({ createdAt: -1 }));
 
+exports.listPublicCapacity = async (_req, res) => ok(res, await Capacity.find({ status: 'available', date: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) } }).populate('vehicleId', 'name number type capacity capacityUnit').populate('driverId', 'name').sort({ date: 1, createdAt: -1 }).lean());
+
 exports.createCapacity = async (req, res) => {
-    const { vehicleId, availableCapacity, date, from, to } = req.body; if (!vehicleId || availableCapacity == null || !date || !from || !to) return res.status(400).json({ success: false, message: 'vehicleId, availableCapacity, date, from, and to are required' }); if (!valid(vehicleId)) return res.status(400).json({ success: false, message: 'Invalid vehicle ID' }); const v = await Vehicle.findOne({ _id: vehicleId, driverId: req.user.id }); if (!v) return res.status(404).json({ success: false, message: 'Vehicle not found' }); const cap = Number(availableCapacity); if (!Number.isFinite(cap) || cap <= 0 || cap > v.capacity) return res.status(400).json({ success: false, message: 'Available capacity must be positive and no greater than vehicle capacity' }); const p = await Capacity.create({ driverId: req.user.id, vehicleId, vehicleName: v.name, vehicleNumber: v.number, availableCapacity: cap, capacityUnit: req.body.capacityUnit || v.capacityUnit, date, from, to, loadTypes: Array.isArray(req.body.loadTypes) ? req.body.loadTypes : (req.body.loadTypes ? [req.body.loadTypes] : []), companyName: req.body.companyName || '', contactNumber: req.body.contactNumber || '', notes: req.body.notes || '' }); return ok(res, p, 201, 'Capacity posted');
+    const vehicleId = req.body.vehicleId || req.body.truckId; const { availableCapacity, date, from, to } = req.body; if (!vehicleId || availableCapacity == null || !date || !from || !to) return res.status(400).json({ success: false, message: 'vehicleId, availableCapacity, date, from, and to are required' }); if (!valid(vehicleId)) return res.status(400).json({ success: false, message: 'Invalid vehicle ID' }); const v = await Vehicle.findOne({ _id: vehicleId, driverId: req.user.id }); if (!v) return res.status(404).json({ success: false, message: 'Vehicle not found' }); const cap = Number(availableCapacity); if (!Number.isFinite(cap) || cap <= 0 || cap > v.capacity) return res.status(400).json({ success: false, message: 'Available capacity must be positive and no greater than vehicle capacity' }); const p = await Capacity.create({ driverId: req.user.id, vehicleId, vehicleName: v.name, vehicleNumber: v.number, availableCapacity: cap, capacityUnit: req.body.capacityUnit || v.capacityUnit, date, from, to, loadTypes: Array.isArray(req.body.loadTypes) ? req.body.loadTypes : (req.body.loadTypes ? [req.body.loadTypes] : []), companyName: req.body.companyName || '', contactNumber: req.body.contactPhone || req.body.contactNumber || '', notes: req.body.notes || '' }); return ok(res, p, 201, 'Capacity posted');
 };
 
 exports.updateCapacity = async (req, res) => {
