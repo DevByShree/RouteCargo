@@ -34,7 +34,7 @@ const Signin = () => {
                 localStorage.setItem("role", res.user.role);
             }
             if (res.user.role === "driver") {
-                navigate("/driver-dashboard");
+                navigate("/driver");
             } else {
                 navigate("/dashboard");
             }
