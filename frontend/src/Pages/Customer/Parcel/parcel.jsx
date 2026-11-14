@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { shipmentAPI } from "../../../API/api";
+import { createParcel, getShipmentId, uploadProductImages } from "../../../API/parcelapi";
 import {
   Package, Box, ChevronDown, Minus, Plus, Pencil, Trash2, ClipboardList,
   ArrowLeft, ArrowRight, Image as ImageIcon, Camera, Upload, X, Tag,
-  MapPin, AlertCircle, Layers, Cpu, Armchair, Cog, Shirt, Apple, FileText,
+  MapPin, AlertCircle, Layers, Cpu, Armchair, Cog, Shirt, Apple, FileText, Loader2,
 } from "lucide-react";
+
+// Pages (must match the paths in your router)
+const FIND_ROUTE = "/user/find";
+const SIGNIN_ROUTE = "/signin";
 
 const PARCEL_TYPES = ["Electronics", "Furniture", "Machinery", "Textiles", "Food & Perishables", "Documents", "Other"];
 
@@ -347,14 +351,21 @@ export default function ParcelDetails() {
   const [parcels, setParcels] = useState([]);
   const [formError, setFormError] = useState("");
   const [pageError, setPageError] = useState("");
-  const { pickup, destination } = location.state || {};
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+
+  // Parcels already saved on the server (so a retry never creates duplicates)
+  const savedRef = useRef(new Map()); // parcelLocalId -> saved parcel from API
+
+  const { pickup, destination, shipment } = location.state || {};
+  const shipmentId = getShipmentId(shipment);
 
   const totalPackages = parcels.reduce((sum, p) => sum + p.qty, 0);
   const TypeIcon = TYPE_ICONS[type] || Box;
 
-  const createShipment = async () => {
-    if (!pickup || !destination) {
-      setPageError("Pickup and delivery locations are missing. Go back and enter them first.");
+  // Save every parcel with POST /api/parcel, then go to Find Trucks
+  const saveParcelsAndContinue = async () => {
+    if (shipmentId === null || shipmentId === undefined) {
+      setPageError("Shipment not found. Go back and create the shipment first.");
       return;
     }
     if (!parcels.length) {
@@ -364,11 +375,35 @@ export default function ParcelDetails() {
 
     setSubmitting(true);
     setPageError("");
+    setNeedsSignIn(false);
     try {
-      const response = await shipmentAPI.create({ pickup, destination });
-      navigate("/Find", { state: { shipment: response.data } });
+      for (const p of parcels) {
+        if (savedRef.current.has(p.id)) continue; // already saved
+
+        const productImages = await uploadProductImages(p.images);
+        const saved = await createParcel({
+          shipmentId,
+          productName: p.name,
+          parcelType: p.type,
+          numberOfPackages: p.qty,
+          productImages,
+          description: p.desc,
+        });
+        savedRef.current.set(p.id, saved);
+      }
+
+      navigate(FIND_ROUTE, {
+        state: {
+          pickup,
+          destination,
+          shipment,
+          shipmentId,
+          parcels: parcels.map((p) => ({ ...p, saved: savedRef.current.get(p.id) })),
+        },
+      });
     } catch (error) {
-      setPageError(error.message || "Could not create shipment. Please try again.");
+      if (error.code === "NOT_SIGNED_IN") setNeedsSignIn(true);
+      setPageError(error.message || "Could not save parcels. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -532,7 +567,8 @@ export default function ParcelDetails() {
               <button
                 type="button"
                 onClick={addParcel}
-                className="flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
+                disabled={submitting}
+                className="flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:opacity-60"
               >
                 <Plus className="h-4 w-4" /> Add Parcel
               </button>
@@ -610,10 +646,10 @@ export default function ParcelDetails() {
                       <td className="px-3 py-3">{p.qty}</td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-3">
-                          <button type="button" onClick={() => editParcel(p.id)} aria-label={`Edit ${p.name}`} className="text-blue-600 hover:text-blue-800">
+                          <button type="button" onClick={() => editParcel(p.id)} disabled={submitting} aria-label={`Edit ${p.name}`} className="text-blue-600 hover:text-blue-800">
                             <Pencil className="h-4 w-4" />
                           </button>
-                          <button type="button" onClick={() => removeParcel(p.id)} aria-label={`Delete ${p.name}`} className="text-slate-400 hover:text-red-500">
+                          <button type="button" onClick={() => removeParcel(p.id)} disabled={submitting} aria-label={`Delete ${p.name}`} className="text-slate-400 hover:text-red-500">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -636,25 +672,37 @@ export default function ParcelDetails() {
         {/* ---------------- Footer actions ---------------- */}
         <div className="mt-7 border-t border-slate-200 pt-6">
           {pageError && (
-            <p role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-              <AlertCircle className="h-4 w-4 shrink-0" /> {pageError}
-            </p>
+            <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+              <p className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" /> {pageError}
+              </p>
+              {needsSignIn && (
+                <button type="button" onClick={() => navigate(SIGNIN_ROUTE)} className="ml-6 mt-1 font-medium underline hover:text-red-900">
+                  Go to sign in
+                </button>
+              )}
+            </div>
           )}
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:px-6"
+              disabled={submitting}
+              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60 sm:px-6"
             >
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
             <button
               type="button"
-              onClick={createShipment}
+              onClick={saveParcelsAndContinue}
               disabled={submitting}
               className="flex items-center gap-2 rounded-lg bg-blue-700 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60 sm:px-8"
             >
-              {submitting ? "Creating shipment..." : "Next: Find Trucks"} <ArrowRight className="h-4 w-4" />
+              {submitting ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving parcels...</>
+              ) : (
+                <>Next: Find Trucks <ArrowRight className="h-4 w-4" /></>
+              )}
             </button>
           </div>
         </div>

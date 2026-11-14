@@ -34,6 +34,7 @@ app.use("/api/shipments", ShipmentRoutes);
 
 app.use("/api/parcel", ParcelRoutes);
 app.use("/api/parcels", require("./src/routes/parcel"));
+app.use("/api/booking", require("./src/routes/booking"));
 
 // Global error handler
 app.use((err, req, res, next) => {

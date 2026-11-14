@@ -58,7 +58,7 @@ export default function Dashboard() {
                     </div>
                     <button
                         type="button"
-                        onClick={() => navigate("/shipment")}
+                        onClick={() => navigate("/user/shipment")}
                         className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
                     >
                         <Plus className="h-4 w-4" /> Create New Shipment
