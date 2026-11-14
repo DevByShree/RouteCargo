@@ -1,18 +1,21 @@
+<<<<<<< HEAD
 
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+=======
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = "7d";
-
-const COOKIE_OPTIONS = {
+const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
+<<<<<<< HEAD
 // Counter its make a id for user 
 const Counter =
     mongoose.models.Counter ||
@@ -46,12 +49,35 @@ const sendToken = (user, statusCode, res) => {
             token: token,
         });
 };
+=======
+const publicUser = u => ({
+    id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role
+});
 
-// POST /api/auth/signup
+function sendToken(user, status, res) {
+    const token = jwt.sign({
+        id: user._id,
+        role: user.role
+    }, process.env.JWT_SECRET,
+        { expiresIn: '7d' });
+
+    return res.status(status)
+        .cookie('token', token, cookieOptions)
+        .json({
+            success: true,
+            token,
+            user: publicUser(user)
+        });
+}
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+
 exports.signup = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
 
+<<<<<<< HEAD
         if (!name || !email || !password || !role) {
             return res.status(400).json({
                 success: false,
@@ -125,12 +151,59 @@ exports.signup = async (req, res) => {
             success: false,
             message: "Failed to create account",
         });
+=======
+        let { name, email, password, role } = req.body;
+
+        name = String(name || '').trim();
+        email = String(email || '').trim().toLowerCase();
+
+        if (!name || !email || !password)
+            return res.status(400).json({
+                success: false, message: 'Name, email, and password are required'
+            });
+
+        if (String(password).length < 6)
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters'
+            });
+        if (await User.findOne({ email }))
+            return res.status(409).json({
+                success: false,
+                message: 'Email already registered'
+            });
+
+        const user = await User.create({
+            name,
+            email,
+            password,
+            role: role === 'driver' ? 'driver' : 'customer'
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: 'Account created successfully. Please sign in.',
+            user: publicUser(user)
+        });
+    }
+    catch (e) {
+        if (e.code === 11000)
+            return res.status(409).json({
+                success: false,
+                message: 'Email already registered'
+            });
+        return res.status(500).json({
+            success: false,
+            message: 'Unable to create account'
+        });
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
     }
 };
 
-// POST /api/auth/signin
+
 exports.signin = async (req, res) => {
     try {
+<<<<<<< HEAD
         const { email, password } = req.body;
 
         if (!email || !password) {
@@ -167,10 +240,31 @@ exports.signin = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to sign in",
+=======
+        const email = String(req.body.email || '').trim().toLowerCase(),
+            password = req.body.password; if (!email || !password)
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        const user = await User.findOne({ email }).select('+password');
+        if (!user || !(await user.matchPassword(password)))
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        return sendToken(user, 200, res);
+    }
+    catch {
+        return res.status(500).json({
+            success: false,
+            message: 'Unable to sign in'
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
         });
     }
 };
 
+<<<<<<< HEAD
 // GET /api/auth/me
 exports.me = async (req, res) => {
     try {
@@ -253,3 +347,24 @@ exports.updateMe = async (req, res) => {
         return res.status(500).json({ success: false, message: "Failed to update profile" });
     }
 };
+=======
+exports.me = async (req, res) => {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({
+        success: false,
+        message: 'User not found'
+    });
+    return res.json({
+        success: true,
+        user
+    });
+};
+
+exports.signout = (req, res) => res.clearCookie('token', {
+    httpOnly: true, secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+}).json({
+    success: true,
+    message: 'Signed out'
+});
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543

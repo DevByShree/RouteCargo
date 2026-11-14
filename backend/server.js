@@ -1,25 +1,29 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-require("dotenv").config();
+const express = require('express');
+const mongoose = require('mongoose');
 
-const authRoutes = require("./src/routes/auth");
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
 
+<<<<<<< HEAD
 
+=======
+const path = require('path');
+require('dotenv').config();
+
+const authRoutes = require('./src/routes/auth');
+const driverRoutes = require('./src/routes/driverRoutes');
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
 const app = express();
 
-// CORS — allow frontend origin with credentials (httpOnly cookies)
-app.use(
-    cors({
-        origin: process.env.CLIENT_URL || "http://localhost:5173",
-        credentials: true,
-    })
-);
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true
+}));
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+<<<<<<< HEAD
 // Health check
 app.get("/", (req, res) => {
     res.send("RouteCargo Backend is running!");
@@ -34,26 +38,44 @@ app.use("/api/shipments", ShipmentRoutes);
 
 app.use("/api/parcel", ParcelRoutes);
 app.use("/api/parcels", require("./src/routes/parcel"));
+=======
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Global error handler
+app.get('/', (req, res) =>
+    res.json({
+        success: true,
+        message: 'RouteCargo Backend is running!'
+    }));
+
+app.use('/api/auth', authRoutes);
+
+app.use('/api/driver', driverRoutes);
+
+app.use((req, res) =>
+    res.status(404).json({
+        success: false,
+        message: 'Route not found'
+    }));
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error(err);
+    if (res.headersSent) return next(err);
+    res.status(err.status || 500).json({
+        success: false, message: err.status ? err.message : 'Internal server error'
+    });
 });
-
-const PORT = process.env.PORT || 5000;
-
-async function startServer() {
-    try {
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log("MongoDB connected successfully!");
-
-        app.listen(PORT, () => {
-            console.log(`Server running on http://localhost:${PORT}`);
-        });
-    } catch (error) {
-        console.error("MongoDB connection failed:", error.message);
-    }
+async function start() {
+    if (!process.env.MONGO_URI || !process.env.JWT_SECRET)
+        throw new Error('MONGO_URI and JWT_SECRET must be configured in .env');
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('MongoDB connected');
+    app.listen(process.env.PORT || 5000, () =>
+        console.log(`Server running on http://localhost:${process.env.PORT || 5000}`
+        ));
 }
 
-startServer();
+start().catch(e => {
+    console.error('Startup failed:', e.message);
+    process.exit(1);
+});

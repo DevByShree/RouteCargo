@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -6,19 +7,33 @@ import {
 } from "lucide-react";
 import tc from "../../../assets/tc.png";
 import ind from "../../../assets/ind.png";
+=======
+import { useEffect, useState } from "react";
+import tc from "../../../assets/tc.png"
+import ind from "../../../assets/ind.png"
+import { driverApi } from "../../../API/driverApi";
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
 
 const DEFAULT_PICKUP = { location: "Pune, Maharashtra", date: "22 Sep 2026", time: "09:00 AM" };
 const DEFAULT_DELIVERY = { location: "Mumbai, Maharashtra", date: "23 Sep 2026", time: "06:00 PM" };
 const DEFAULT_PARCEL = { category: "Electronics", packages: 10, weight: 1200, volume: 0.72 };
 
+<<<<<<< HEAD
 // Accepts either a plain string ("Pune, Maharashtra") or an object ({ location, date, time })
 const toPlace = (value, fallback) =>
     !value ? fallback : typeof value === "string" ? { location: value, date: "", time: "" } : { ...fallback, ...value };
+=======
+    const [showFilters, setShowFilters] = useState(false);
+    const [posts, setPosts] = useState([]);
+    const [error, setError] = useState("");
+    useEffect(() => { driverApi.listPublicCapacity().then(setPosts).catch(e => setError(e.message)); }, []);
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
 
 const cityOf = (v) => (v || "").split(",")[0].trim();
 const rupees = (n) => `₹ ${n.toLocaleString("en-IN")}`;
 const initials = (name) => name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
+<<<<<<< HEAD
 const VEHICLE_TYPES = ["Closed Body", "Open Body", "Container", "Refrigerated"];
 const SORTS = {
     best: { label: "Best Match", fn: (a, b) => b.matchPercent - a.matchPercent },
@@ -26,6 +41,28 @@ const SORTS = {
     rating: { label: "Highest Rated", fn: (a, b) => b.rating - a.rating },
     capacity: { label: "Most Space Free", fn: (a, b) => (b.total - b.used) - (a.total - a.used) },
 };
+=======
+    const trucks = posts.map(post => ({
+        id: post.id,
+        image: tc,
+        name: post.companyName || post.contactName || "RouteCargo Driver",
+        verified: false,
+        matchPercent: 0,
+        matchLabel: "Published trip",
+        vehicle: post.vehicleType || post.truckName || "Truck",
+        vehicleNo: post.truckNumber || "",
+        route: `${post.from} → ${post.to}`,
+        depTime: `Travel date: ${post.date}`,
+        arrTime: `Accepts: ${(post.loadTypes || []).join(", ")}`,
+        capacity: `${post.availableCapacity} ${post.capacityUnit} available`,
+        capacityPercent: post.totalCapacity ? Math.min(100, Number(post.availableCapacity) / Number(post.totalCapacity) * 100) : 100,
+        price: "Contact driver",
+        priceNote: post.contactPhone || "Contact details available after sign in",
+        driver: post.contactName || post.companyName || "Driver",
+        rating: "—",
+        reviews: 0,
+    }));
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
 
 const inputBase =
     "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
@@ -39,6 +76,7 @@ function Card({ className = "", children }) {
     );
 }
 
+<<<<<<< HEAD
 function Detail({ icon: Icon, label, value }) {
     return (
         <div className="min-w-0">
@@ -46,10 +84,168 @@ function Detail({ icon: Icon, label, value }) {
                 <Icon className="h-3.5 w-3.5" /> {label}
             </div>
             <div className="mt-0.5 truncate text-sm font-semibold text-slate-900" title={value}>{value}</div>
+=======
+            {/* Header */}
+            <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-3">
+                <div className="font-bold text-xl sm:text-2xl py-1 text-gray-900">
+                    Find Available Trucks
+                </div>
+                <span className="text-gray-500 text-sm">
+                    We found {trucks.length} trucks travelling on your route or nearby routes
+                </span>
+                {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+            </div>
+            <button
+                onClick={() => setShowFilters((s) => !s)}
+                className="lg:hidden mx-4 sm:mx-6 mt-3 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 flex items-center justify-between"
+            >
+                Filters
+                <span className="text-gray-400">{showFilters ? "▲" : "▼"}</span>
+            </button>
+
+            <div className="flex flex-col lg:flex-row flex-1 gap-4 px-4 sm:px-6 lg:px-8 py-4 items-start">
+                <div className="flex-1 w-full flex flex-col gap-3 min-w-0">
+
+                    <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2 lg:bg-transparent lg:px-0 lg:py-0">
+                        <span className="font-bold text-sm">{trucks.length} Trucks Found</span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="hidden sm:inline">Sort by</span>
+                            <select className="border border-gray-200 rounded-md px-2 py-1 text-xs">
+                                <option>Best Match</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {trucks.map((truck) => (
+                        <div key={truck.id} className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col md:flex-row gap-3 items-start">
+                            {/* Image placeholder */}
+                            <img
+                                src={truck.image}
+                                alt={truck.name}
+                                className="w-full md:w-28 h-24 md:h-20 rounded-md bg-gray-200 object-cover shrink-0" />
+                            {/* Details */}
+                            <div className="flex-1 w-full flex flex-col gap-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="font-bold text-sm">{truck.name}</span>
+                                    <span className="text-xs text-blue-600 bg-blue-100 rounded px-1.5 py-0.5 md:ml-auto">
+                                        {truck.matchLabel}
+                                    </span>
+                                </div>
+
+                                <span className="text-xs text-gray-600">{truck.vehicle}</span>
+                                <span className="text-xs text-gray-400">{truck.vehicleNo}</span>
+
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                    <span>📍 {truck.route}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+                                    <span>{truck.depTime}</span>
+                                    <span>{truck.arrTime}</span>
+                                </div>
+                            </div>
+
+                            {/* Capacity + Price */}
+                            <div className="flex flex-col gap-1 w-full md:w-32 shrink-0">
+                                <span className="text-xs text-gray-500">Available Capacity</span>
+                                <span className="font-semibold text-xs">{truck.capacity}</span>
+                                <div className="h-1.5 bg-gray-200 rounded overflow-hidden">
+                                    <div className="h-full bg-blue-600" style={{ width: `${truck.capacityPercent}%` }} />
+                                </div>
+                                <span className="font-bold text-sm text-gray-900 mt-1">{truck.price}</span>
+                                <span className="text-xs text-gray-400">{truck.priceNote}</span>
+                            </div>
+
+                            {/* Driver + Actions */}
+                            <div className="flex flex-col items-start md:items-end gap-1.5 w-full md:w-36 shrink-0">
+                                <span className="text-xs text-blue-600 cursor-pointer">View Details</span>
+                                <div className="flex items-center gap-1.5">
+                                    <img
+                                        src=""
+                                        alt={truck.driver}
+                                        className="w-6 h-6 rounded-full bg-gray-200"
+                                    />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold">{truck.driver}</span>
+                                        <span className="text-xs text-gray-400">⭐ {truck.rating} ({truck.reviews})</span>
+                                    </div>
+                                </div>
+                                <button className="bg-blue-600 text-white rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer hover:bg-blue-700 transition w-full">
+                                    Request Booking →
+                                </button>
+                            </div>
+
+                        </div>
+                    ))}
+
+                </div>
+
+                {/* Right: Map + Shipment Details */}
+                <div className="w-full lg:w-64 shrink-0 flex flex-col gap-3">
+
+                    {/* Map */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                            <span className="font-bold text-xs">Route Map</span>
+                            <span className="text-xs text-blue-600">Nearby Trucks ({trucks.length})</span>
+                        </div>
+                        <img
+                            src={ind}
+                            alt="Route Map"
+                            className="w-full h-40 rounded-md bg-gray-200 object-cover"
+                        />
+                    </div>
+
+                    {/* Shipment Details - fully driven by formData */}
+                    <div className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col gap-2.5">
+                        <div className="flex justify-between items-center">
+                            <span className="font-bold text-xs">Your Shipment Details</span>
+                            <span className="text-xs text-blue-600 cursor-pointer">✎ Edit</span>
+                        </div>
+
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-xs text-green-600">🟢 Pickup</span>
+                            <span className="text-xs font-semibold">{pickup.location}</span>
+                            <span className="text-xs text-gray-400">{pickup.date}, {pickup.time}</span>
+                        </div>
+
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-xs text-red-600">🔴 Delivery</span>
+                            <span className="text-xs font-semibold">{delivery.location}</span>
+                            <span className="text-xs text-gray-400">{delivery.date}, {delivery.time}</span>
+                        </div>
+
+                        <div className="border-t border-gray-200 pt-2 flex flex-col gap-0.5">
+                            <span className="text-xs font-semibold">📦 {parcel.category}</span>
+                            <span className="text-xs text-gray-400">
+                                {parcel.packages} packages • {parcel.weight} kg • {parcel.volume} m³
+                            </span>
+                        </div>
+
+                        <div className="flex flex-wrap justify-between gap-2 text-xs text-gray-500">
+                            <div className="flex flex-col">
+                                <span>Distance</span>
+                                <span className="font-semibold text-gray-900">{distance}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span>Est. Time</span>
+                                <span className="font-semibold text-gray-900">{estimatedTime}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span>Pref. Date</span>
+                                <span className="font-semibold text-gray-900">{pickup.date}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
         </div>
     );
 }
 
+<<<<<<< HEAD
 function FilterPanel({ filters, setFilters, reset }) {
     const toggleType = (t) =>
         setFilters((f) => ({
@@ -398,3 +594,6 @@ export default function Find({ formData }) {
         </div>
     );
 }
+=======
+export default Find;
+>>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
