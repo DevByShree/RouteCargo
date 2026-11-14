@@ -242,8 +242,8 @@ export default function Profile() {
                                                 <>
                                                     <div
                                                         className={`flex h-11 items-center gap-2 rounded-lg border bg-white px-3 transition focus-within:ring-2 ${err
-                                                                ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
-                                                                : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"
+                                                            ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
+                                                            : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"
                                                             }`}
                                                     >
                                                         <Icon className="h-4 w-4 shrink-0 text-slate-500" />
@@ -305,6 +305,7 @@ export default function Profile() {
             </main>
         </div>
     );
+<<<<<<< HEAD
 <<<<<<< HEAD
 }
 =======
@@ -396,3 +397,6 @@ export default UserProfile;
 =======
 }
 >>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
+=======
+}
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead

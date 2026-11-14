@@ -46,8 +46,12 @@ app.use("/api/shipments", ShipmentRoutes);
 
 app.use("/api/parcel", ParcelRoutes);
 app.use("/api/parcels", require("./src/routes/parcel"));
+<<<<<<< HEAD
 =======
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+=======
+app.use("/api/booking", require("./src/routes/booking"));
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 
 app.get('/', (req, res) =>
     res.json({

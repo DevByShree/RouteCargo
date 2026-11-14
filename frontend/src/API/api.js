@@ -41,11 +41,13 @@ export const getUserRole = () => {
 };
 
 const request = async (endpoint, options = {}) => {
+    const token = getToken();
     const url = `${API_BASE}${endpoint}`;
     const config = {
         credentials: "include", // send httpOnly cookie
         headers: {
             "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
             ...options.headers,
         },
         ...options,

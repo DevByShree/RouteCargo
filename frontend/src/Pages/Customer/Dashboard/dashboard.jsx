@@ -62,7 +62,7 @@ export default function Dashboard() {
                     </div>
                     <button
                         type="button"
-                        onClick={() => navigate("/shipment")}
+                        onClick={() => navigate("/user/shipment")}
                         className="flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-800"
                     >
                         <Plus className="h-4 w-4" /> Create New Shipment
@@ -194,6 +194,7 @@ export default function Dashboard() {
         </div >
     );
 <<<<<<< HEAD
+<<<<<<< HEAD
 }
 =======
 import { FaTruck, FaClipboardCheck, FaRegClock, FaMapMarkerAlt, FaBan } from "react-icons/fa";
@@ -324,3 +325,6 @@ export default Dashboard;
 =======
 }
 >>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
+=======
+}
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead

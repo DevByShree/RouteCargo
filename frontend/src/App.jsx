@@ -5,9 +5,13 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 >>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
-import LandingPage from "./Pages/LandingPage.jsx";
 import Signup from "./Pages/Authentication/Signup.jsx";
 import Signin from "./Pages/Authentication/Signin.jsx";
+<<<<<<< HEAD
+=======
+import LandingPage from "./Pages/LandingPage";
+
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 import Dashboard from "./Pages/Customer/Dashboard/dashboard.jsx";
 import Find from "./Pages/Customer/Find_Trucks/Find.jsx";
 import Booking from "./Pages/Customer/My_Booking/Booking.jsx";
@@ -19,16 +23,28 @@ import Shipment from "./Pages/Customer/Shipment/shipment.jsx";
 import Parcel from "./Pages/Customer/Parcel/parcel.jsx";
 
 import Layout from "./Layout/Layout.jsx";
+<<<<<<< HEAD
 import DriverDashboard from "./Pages/Driver/Dashboard.jsx";
 import RaiseRequest from "./Pages/Driver/RaiseRequest.jsx";
+=======
+import DriverDashboard from "./Pages/Driver/Dashboard";
+import RaiseRequest from "./Pages/Driver/RaiseRequest.jsx"
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 import MyRequests from "./Pages/Driver/MyRequests.jsx";
 import AddVehicles from "./Pages/Driver/AddVehicles.jsx";
 import DriverProfile from "./Pages/Driver/DriverProfile.jsx";
 
 function App() {
+<<<<<<< HEAD
   return (
     <BrowserRouter>
       <Routes>
+=======
+    return (
+        <BrowserRouter>
+
+            <Routes>
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 
                 {/* Public Pages */}
                 <Route path="/" element={<LandingPage />} />
@@ -58,6 +74,7 @@ function App() {
                 </Route>
 
             </Routes>
+<<<<<<< HEAD
     </BrowserRouter>
   );
 }
@@ -122,6 +139,8 @@ function App() {
                 </Route>
 
             </Routes>
+=======
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 
         </BrowserRouter>
     );

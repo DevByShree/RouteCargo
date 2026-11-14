@@ -150,8 +150,8 @@ function Navbar() {
         <nav
             aria-label="Main"
             className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${scrolled
-                    ? "border-[#E2E8F0] bg-white/90 shadow-md shadow-slate-900/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/80"
-                    : "border-transparent bg-white"
+                ? "border-[#E2E8F0] bg-white/90 shadow-md shadow-slate-900/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/80"
+                : "border-transparent bg-white"
                 }`}
         >
             <div

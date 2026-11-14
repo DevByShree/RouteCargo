@@ -3,8 +3,19 @@
 =======
 >>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useState, useEffect } from "react";
+<<<<<<< HEAD
 import { useNavigate, useLocation } from "react-router-dom";
 import { House, FilePlus2, Truck, Package, CalendarDays, CircleDot, CreditCard, MapPin, UserRound, ChevronLeft, ChevronRight, Menu, X, PlusSquare, ListChecks, User, LogOut, } from "lucide-react";
+=======
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import {
+    House, FilePlus2, Truck, Package, CalendarDays, CircleDot, CreditCard,
+    MapPin, UserRound, ChevronLeft, ChevronRight, Menu, X, LogOut,
+    PlusSquare,
+    ListChecks,
+    User,
+} from "lucide-react";
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 import { authAPI, removeToken } from "../API/api";
 
 const userMenuItems = [
@@ -17,6 +28,17 @@ const userMenuItems = [
     { name: "Payments", path: "/user/payment", icon: CreditCard },
     { name: "Saved Addresses", path: "/user/Address", icon: MapPin },
     { name: "Profile", path: "/user/profile", icon: UserRound },
+<<<<<<< HEAD
+=======
+];
+
+const driverMenuItems = [
+    { name: "Dashboard", path: "/driver", icon: House, },
+    { name: "Raise Request", path: "/driver/raise-request", icon: PlusSquare, },
+    { name: "My Requests", path: "/driver/my-requests", icon: ListChecks, },
+    { name: "Vehicles", path: "/driver/vehicles", icon: Truck, },
+    { name: "Profile", path: "/driver/profile", icon: User, },
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 ];
 
 const driverMenuItems = [
@@ -27,12 +49,40 @@ const driverMenuItems = [
     { name: "Profile", path: "/driver/profile", icon: User, },
 ];
 
+<<<<<<< HEAD
 function Sidebar() {
+=======
+function readCollapsed() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved !== null) return saved === "1";
+    } catch {
+        // ignore
+    }
+    // No saved choice: start collapsed on tablet widths
+    return typeof window !== "undefined" && window.innerWidth < 1024;
+}
+
+function Brand({ collapsed }) {
+    return (
+        <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-700 text-white">
+                <Truck className="h-5 w-5" strokeWidth={2} />
+            </span>
+            <span className={`truncate text-xl font-bold text-blue-700 ${collapsed ? "md:hidden" : ""}`}>RouteShare</span>
+        </div>
+    );
+}
+
+export default function Sidebar() {
+
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
     const navigate = useNavigate();
     const location = useLocation();
 
     const role = localStorage.getItem("role")?.toLowerCase();
 
+<<<<<<< HEAD
     const menuItems =
         role === "driver" ? driverMenuItems : userMenuItems;
 
@@ -42,6 +92,19 @@ function Sidebar() {
     );
     // Mobile: off-canvas drawer
     const [mobileOpen, setMobileOpen] = useState(false);
+=======
+    const role = localStorage.getItem("role")?.toLowerCase();
+
+    const menuItems = role === "driver" ? driverMenuItems : userMenuItems;
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
+        } catch {
+            // ignore
+        }
+    }, [collapsed]);
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 
     // Close the drawer after navigating
     useEffect(() => {
@@ -143,6 +206,7 @@ function Sidebar() {
         </>
     );
 }
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 import { useState, useEffect } from "react";
@@ -293,3 +357,5 @@ export default Sidebar;
 
 export default Sidebar;
 >>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
+=======
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead

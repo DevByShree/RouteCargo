@@ -1,12 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Phone, Mail, MapPin, Building2, Truck, Pencil, Save, Plus } from "lucide-react";
+<<<<<<< HEAD
 import { driverApi } from "../../API/driverApi";
+=======
+
+const PROFILE_KEY = "routecargo_driver_profile";
+const TRUCKS_KEY = "routecargo_vehicles";
+const defaultProfile = {
+  ownerName: "Rohit Singh", contactNumber: "+91 98765 43210", email: "rohit.singh@gmail.com",
+  altNumber: "", address: "Bhopal, Madhya Pradesh, India", companyName: "Singh Transport Pvt. Ltd.",
+  gstNumber: "27ABCDE1234F1Z5", companyAddress: "Transport Nagar, Bhopal, Madhya Pradesh", yearEstablishment: "2020"
+};
+const sampleTrucks = [
+  { id: "truck-1", name: "Truck 1", number: "MH12AB1234", type: "Tata 14 Wheeler", capacity: 8, capacityUnit: "tons", fuelType: "Diesel", modelYear: "2022", documents: [], photos: [], available: true },
+  { id: "truck-2", name: "Truck 2", number: "MH40XY5678", type: "Ashok Leyland 16 Wheeler", capacity: 15, capacityUnit: "tons", fuelType: "Diesel", modelYear: "2021", documents: [], photos: [], available: true },
+  { id: "truck-3", name: "Truck 3", number: "RJ14CD9876", type: "Eicher 12 Wheeler", capacity: 10, capacityUnit: "tons", fuelType: "Diesel", modelYear: "2023", documents: [], photos: [], available: true }
+];
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 const inputClass = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50";
 const labelClass = "mb-1 block text-xs font-semibold text-slate-600";
 
 export default function DriverProfile() {
   const navigate = useNavigate();
+<<<<<<< HEAD
   const [profile, setProfile] = useState({});
   const [trucks, setTrucks] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -15,13 +32,26 @@ export default function DriverProfile() {
   useEffect(() => { Promise.all([driverApi.getProfile(), driverApi.listVehicles()]).then(([currentProfile, vehicles]) => { setProfile(currentProfile || {}); setTrucks(vehicles); }).catch(e => setError(e.message)); }, []);
   const update = (key, value) => setProfile(p => ({ ...p, [key]: value }));
   const save = async () => { try { setProfile(await driverApi.saveProfile({ ...profile, yearEstablishment: profile.yearEstablishment || null })); setEditing(false); setSaved(true); setError(""); setTimeout(() => setSaved(false), 2500); } catch (e) { setError(e.message); } };
+=======
+  const [profile, setProfile] = useState(() => ({ ...defaultProfile, ...JSON.parse(localStorage.getItem(PROFILE_KEY) || "{}") }));
+  const [trucks, setTrucks] = useState(() => JSON.parse(localStorage.getItem(TRUCKS_KEY) || "null") || sampleTrucks);
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => localStorage.setItem(TRUCKS_KEY, JSON.stringify(trucks)), [trucks]);
+  const update = (key, value) => setProfile(p => ({ ...p, [key]: value }));
+  const save = () => { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); setEditing(false); setSaved(true); setTimeout(() => setSaved(false), 2500); };
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
   return <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
     <div className="mx-auto max-w-7xl">
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Profile</h1><p className="mt-1 text-sm text-slate-500">Manage your personal and transport company details.</p></div>
         <button onClick={() => editing ? save() : setEditing(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">{editing ? <Save size={16}/> : <Pencil size={16}/>} {editing ? "Save Profile" : "Edit Profile"}</button>
       </header>
+<<<<<<< HEAD
       {saved && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">Profile saved.</div>}{error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+=======
+      {saved && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">Profile saved on this device.</div>}
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <h2 className="mb-5 flex items-center gap-2 font-semibold text-slate-900"><User size={18}/> Personal / Owner Details</h2>

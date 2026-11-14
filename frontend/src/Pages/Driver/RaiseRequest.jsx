@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useState, useRef } from "react";
 =======
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +23,31 @@ export default function RaiseRequest() {
     const [message, setMessage] = useState("");
 
     useEffect(() => { Promise.all([driverApi.listVehicles(), driverApi.getProfile()]).then(([vehicles, currentProfile]) => { setTrucks(vehicles); setProfile(currentProfile || {}); }).catch(error => setMessage(error.message)).finally(() => setLoading(false)); }, []);
+=======
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { CalendarDays, MapPin, Truck, Package, Building2, Send, CheckCircle2 } from "lucide-react";
+
+const TRUCKS_KEY = "routecargo_vehicles";
+const PROFILE_KEY = "routecargo_driver_profile";
+const CAPACITY_KEY = "routecargo_capacity_posts";
+const field = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+const label = "mb-1 block text-xs font-semibold text-slate-600";
+const today = new Date().toISOString().slice(0, 10);
+
+export default function RaiseRequest() {
+
+    const navigate = useNavigate();
+
+    const [trucks, setTrucks] = useState(() => JSON.parse(localStorage.getItem(TRUCKS_KEY) || "null") || []);
+    const [profile] = useState(() => JSON.parse(localStorage.getItem(PROFILE_KEY) || "{}"));
+    const [form, setForm] = useState({ truckId: "", availableCapacity: "", date: today, from: "", to: "", loadTypes: ["Small goods", "Industrial goods"], companyName: "", gstNumber: "", contactName: "", contactPhone: "", notes: "" });
+    const [message, setMessage] = useState("");
+
+    useEffect(() => {
+        setTrucks(JSON.parse(localStorage.getItem(TRUCKS_KEY) || "[]"));
+    }, []);
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
 
     const selectedTruck = useMemo(() => trucks.find(t => t.id === form.truckId), [trucks, form.truckId]);
 
@@ -29,7 +55,11 @@ export default function RaiseRequest() {
 
     const toggleLoad = value => setForm(f => ({ ...f, loadTypes: f.loadTypes.includes(value) ? f.loadTypes.filter(x => x !== value) : [...f.loadTypes, value] }));
 
+<<<<<<< HEAD
     const submit = async e => {
+=======
+    const submit = e => {
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
         e.preventDefault();
         if (!selectedTruck) {
             setMessage("Please select a registered truck. Add a vehicle first if the list is empty.");
@@ -52,11 +82,21 @@ export default function RaiseRequest() {
             return;
         }
 
+<<<<<<< HEAD
         try {
             await driverApi.createCapacity({ truckId: selectedTruck.id, availableCapacity: capacity, date: form.date, from: form.from.trim(), to: form.to.trim(), loadTypes: form.loadTypes, companyName: form.companyName.trim(), gstNumber: form.gstNumber.trim(), contactName: form.contactName.trim(), contactPhone: form.contactPhone.trim(), notes: form.notes.trim() });
             setMessage("Available truck capacity published successfully.");
             setForm(f => ({ ...f, availableCapacity: "", from: "", to: "", notes: "" }));
         } catch (error) { setMessage(error.message); }
+=======
+        const posts = JSON.parse(localStorage.getItem(CAPACITY_KEY) || "[]");
+        const post = { id: `CAP-${Date.now()}`, truckId: selectedTruck.id, truckName: selectedTruck.name, truckNumber: selectedTruck.number, vehicleType: selectedTruck.type, totalCapacity: Number(selectedTruck.capacity), capacityUnit: selectedTruck.capacityUnit, availableCapacity: capacity, date: form.date, from: form.from.trim(), to: form.to.trim(), loadTypes: form.loadTypes, companyName: form.companyName.trim() || profile.companyName || "", gstNumber: form.gstNumber.trim() || profile.gstNumber || "", contactName: form.contactName.trim() || profile.ownerName || "", contactPhone: form.contactPhone.trim() || profile.contactNumber || "", notes: form.notes.trim(), status: "Available", createdAt: new Date().toISOString() };
+
+        localStorage.setItem(CAPACITY_KEY, JSON.stringify([post, ...posts]));
+
+        setMessage("Available truck capacity published successfully.");
+        setForm(f => ({ ...f, availableCapacity: "", from: "", to: "", notes: "" }));
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
     };
 
     return <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8"><div className="mx-auto max-w-5xl">
@@ -67,7 +107,11 @@ export default function RaiseRequest() {
         <form onSubmit={submit} className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <section>
                 <h2 className="mb-4 flex items-center gap-2 font-semibold text-slate-900"><Truck size={18} /> Truck and Capacity</h2>
+<<<<<<< HEAD
                 {loading && <p className="mb-4 text-sm text-slate-500">Loading vehicles…</p>}{trucks.length === 0 && !loading && <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">No registered vehicles found. <button type="button" onClick={() => navigate("/driver/vehicles")} className="font-bold underline">Add a vehicle</button> before publishing capacity.</div>}
+=======
+                {trucks.length === 0 && <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">No registered vehicles found. <button type="button" onClick={() => navigate("/driver/vehicles")} className="font-bold underline">Add a vehicle</button> before publishing capacity.</div>}
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label>
                         <span className={label}>Select Truck *</span><select className={field} value={form.truckId} required onChange={e => { update("truckId", e.target.value); update("availableCapacity", "") }}><option value="">Choose a registered truck</option>{trucks.filter(t => t.available !== false).map(t => <option key={t.id} value={t.id}>{t.name} — {t.number}</option>)}</select></label>
@@ -82,6 +126,7 @@ export default function RaiseRequest() {
                 <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-900"><Building2 size={18} /> Company Details <span className="text-xs font-normal text-slate-400">(optional)</span></h2><p className="mb-4 text-xs text-slate-500">If left blank, your saved profile details will be used.</p><div className="grid gap-4 sm:grid-cols-2"><label><span className={label}>Company Name</span><input className={field} value={form.companyName} onChange={e => update("companyName", e.target.value)} placeholder={profile.companyName || "Company name"} /></label><label><span className={label}>GST Number</span><input className={field} value={form.gstNumber} onChange={e => update("gstNumber", e.target.value)} placeholder={profile.gstNumber || "GST number"} /></label><label><span className={label}>Contact Person</span><input className={field} value={form.contactName} onChange={e => update("contactName", e.target.value)} placeholder={profile.ownerName || "Contact name"} /></label><label><span className={label}>Contact Number</span><input className={field} value={form.contactPhone} onChange={e => update("contactPhone", e.target.value)} placeholder={profile.contactNumber || "Phone number"} /></label><label className="sm:col-span-2"><span className={label}>Notes</span><textarea className={field} rows={3} value={form.notes} onChange={e => update("notes", e.target.value)} placeholder="Route preferences, loading instructions or other details" /></label></div></section>
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={() => navigate("/driver/profile")} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Cancel</button><button disabled={trucks.filter(t => t.available !== false).length === 0} type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"><Send size={16} /> Publish Availability</button></div>
         </form>
+<<<<<<< HEAD
         <p className="mt-3 flex items-center gap-2 text-xs text-slate-500"><CheckCircle2 size={14} /> Published availability is saved to your account and can be viewed by customers.</p>
     </div>
     </main>;
@@ -177,3 +222,9 @@ export default function RaiseRequest() {
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
 =======
 >>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
+=======
+        <p className="mt-3 flex items-center gap-2 text-xs text-slate-500"><CheckCircle2 size={14} /> This demo saves availability in your browser. Connect your API for shared customer visibility.</p>
+    </div>
+    </main>;
+}
+>>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead
