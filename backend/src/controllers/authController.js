@@ -1,21 +1,33 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+<<<<<<< HEAD
 =======
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
-const cookieOptions = {
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = "7d";
+
+const COOKIE_OPTIONS = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 // Counter its make a id for user 
 const Counter =
     mongoose.models.Counter ||
@@ -49,6 +61,7 @@ const sendToken = (user, statusCode, res) => {
             token: token,
         });
 };
+<<<<<<< HEAD
 =======
 const publicUser = u => ({
     id: u._id,
@@ -73,11 +86,18 @@ function sendToken(user, status, res) {
         });
 }
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
+// POST /api/auth/signup
 exports.signup = async (req, res) => {
     try {
+        const { name, email, password, role } = req.body;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
         if (!name || !email || !password || !role) {
             return res.status(400).json({
                 success: false,
@@ -151,6 +171,7 @@ exports.signup = async (req, res) => {
             success: false,
             message: "Failed to create account",
         });
+<<<<<<< HEAD
 =======
         let { name, email, password, role } = req.body;
 
@@ -197,13 +218,18 @@ exports.signup = async (req, res) => {
             message: 'Unable to create account'
         });
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
     }
 };
 
-
+// POST /api/auth/signin
 exports.signin = async (req, res) => {
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
         const { email, password } = req.body;
 
         if (!email || !password) {
@@ -240,6 +266,7 @@ exports.signin = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to sign in",
+<<<<<<< HEAD
 =======
         const email = String(req.body.email || '').trim().toLowerCase(),
             password = req.body.password; if (!email || !password)
@@ -260,11 +287,16 @@ exports.signin = async (req, res) => {
             success: false,
             message: 'Unable to sign in'
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
         });
     }
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 // GET /api/auth/me
 exports.me = async (req, res) => {
     try {
@@ -347,6 +379,7 @@ exports.updateMe = async (req, res) => {
         return res.status(500).json({ success: false, message: "Failed to update profile" });
     }
 };
+<<<<<<< HEAD
 =======
 exports.me = async (req, res) => {
     const user = await User.findById(req.user.id);
@@ -368,3 +401,5 @@ exports.signout = (req, res) => res.clearCookie('token', {
     message: 'Signed out'
 });
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657

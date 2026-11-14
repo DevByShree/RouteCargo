@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useNavigate } from "react-router-dom";
 import {
     Truck, Clock, ClipboardCheck, Ban, ChevronRight, Plus, Maximize2, MapPin,
@@ -190,6 +193,7 @@ export default function Dashboard() {
             </main >
         </div >
     );
+<<<<<<< HEAD
 }
 =======
 import { FaTruck, FaClipboardCheck, FaRegClock, FaMapMarkerAlt, FaBan } from "react-icons/fa";
@@ -317,3 +321,6 @@ function Dashboard() {
 
 export default Dashboard;
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+}
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657

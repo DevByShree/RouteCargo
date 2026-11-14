@@ -1,8 +1,12 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
     import { useState } from "react";
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authAPI } from "../../API/api";
+import { useState } from "react";
 
 const Signin = () => {
     const navigate = useNavigate();
@@ -35,9 +39,9 @@ const Signin = () => {
                 localStorage.setItem("role", res.user.role);
             }
             if (res.user.role === "driver") {
-                navigate("/driver-dashboard");
+                navigate("/driver");
             } else {
-                navigate("/dashboard");
+                navigate("/user");
             }
         } catch (err) {
             setError(err.data?.message || "Sign in failed. Please try again.");
@@ -144,6 +148,7 @@ const Signin = () => {
 };
 
 export default Signin;
+<<<<<<< HEAD
 =======
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
@@ -291,3 +296,5 @@ const Signin = () => {
 
 export default Signin;
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657

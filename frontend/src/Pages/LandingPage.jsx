@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import Navbar from "../Layout/Navbar";
 import heroBg from "../assets/hero.png";
 import map from "../assets/map.png";
@@ -367,6 +370,7 @@ function LandingPage() {
     );
 }
 
+<<<<<<< HEAD
 =======
 import Navbar from "../Layout/Navbar";
 import heroBg from "../assets/hero.png";
@@ -634,4 +638,6 @@ function LandingPage() {
 }
 
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 export default LandingPage;

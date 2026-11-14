@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -8,31 +9,58 @@ import {
 import tc from "../../../assets/tc.png";
 import ind from "../../../assets/ind.png";
 =======
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useEffect, useState } from "react";
 import tc from "../../../assets/tc.png"
 import ind from "../../../assets/ind.png"
 import { driverApi } from "../../../API/driverApi";
+<<<<<<< HEAD
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
-const DEFAULT_PICKUP = { location: "Pune, Maharashtra", date: "22 Sep 2026", time: "09:00 AM" };
-const DEFAULT_DELIVERY = { location: "Mumbai, Maharashtra", date: "23 Sep 2026", time: "06:00 PM" };
-const DEFAULT_PARCEL = { category: "Electronics", packages: 10, weight: 1200, volume: 0.72 };
+function Find({ formData }) {
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Accepts either a plain string ("Pune, Maharashtra") or an object ({ location, date, time })
 const toPlace = (value, fallback) =>
     !value ? fallback : typeof value === "string" ? { location: value, date: "", time: "" } : { ...fallback, ...value };
 =======
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
     const [showFilters, setShowFilters] = useState(false);
     const [posts, setPosts] = useState([]);
     const [error, setError] = useState("");
     useEffect(() => { driverApi.listPublicCapacity().then(setPosts).catch(e => setError(e.message)); }, []);
+<<<<<<< HEAD
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
-const cityOf = (v) => (v || "").split(",")[0].trim();
-const rupees = (n) => `₹ ${n.toLocaleString("en-IN")}`;
-const initials = (name) => name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+    const {
+        pickup = {
+            location: "Pune, Maharashtra",
+            date: "22 Sep 2026",
+            time: "09:00 AM",
+        },
+        delivery = {
+            location: "Mumbai, Maharashtra",
+            date: "23 Sep 2026",
+            time: "06:00 PM",
+        },
+        parcel = {
+            category: "Electronics",
+            packages: 10,
+            weight: 1200,
+            volume: 0.72,
+        },
+        distance = "150 Km",
+        estimatedTime = "3-4 Hrs",
+    } = formData || {};
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 const VEHICLE_TYPES = ["Closed Body", "Open Body", "Container", "Refrigerated"];
 const SORTS = {
@@ -42,6 +70,8 @@ const SORTS = {
     capacity: { label: "Most Space Free", fn: (a, b) => (b.total - b.used) - (a.total - a.used) },
 };
 =======
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
     const trucks = posts.map(post => ({
         id: post.id,
         image: tc,
@@ -62,20 +92,15 @@ const SORTS = {
         rating: "—",
         reviews: 0,
     }));
+<<<<<<< HEAD
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 
-const inputBase =
-    "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-
-/* ---------- Pieces ---------- */
-function Card({ className = "", children }) {
     return (
-        <section className={`min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
-            {children}
-        </section>
-    );
-}
+        <div className="flex flex-col min-h-screen bg-slate-50 font-sans">
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 function Detail({ icon: Icon, label, value }) {
     return (
@@ -85,6 +110,8 @@ function Detail({ icon: Icon, label, value }) {
             </div>
             <div className="mt-0.5 truncate text-sm font-semibold text-slate-900" title={value}>{value}</div>
 =======
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
             {/* Header */}
             <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-3">
                 <div className="font-bold text-xl sm:text-2xl py-1 text-gray-900">
@@ -240,11 +267,15 @@ function Detail({ icon: Icon, label, value }) {
 
             </div>
 
+<<<<<<< HEAD
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
         </div>
     );
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 function FilterPanel({ filters, setFilters, reset }) {
     const toggleType = (t) =>
@@ -597,3 +628,6 @@ export default function Find({ formData }) {
 =======
 export default Find;
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+export default Find;
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657

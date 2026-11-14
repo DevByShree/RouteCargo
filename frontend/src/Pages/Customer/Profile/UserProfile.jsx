@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 <<<<<<< HEAD:frontend/src/Pages/Customer/Profile/Profile.jsx
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useEffect, useRef, useState } from "react";
 import { authAPI } from "../../../API/api";
 import { User, Mail, Phone, Building2, Pencil, Check, X, AlertCircle, BadgeCheck } from "lucide-react";
@@ -302,6 +305,7 @@ export default function Profile() {
             </main>
         </div>
     );
+<<<<<<< HEAD
 }
 =======
 import { useState } from "react";
@@ -389,3 +393,6 @@ function UserProfile() {
 
 export default UserProfile;
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543:frontend/src/Pages/Customer/Profile/UserProfile.jsx
+=======
+}
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657

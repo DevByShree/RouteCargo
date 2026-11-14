@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useState, useEffect, useCallback } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { FiMenu, FiX, FiGrid } from "react-icons/fi";
@@ -84,6 +87,9 @@ function Navbar() {
     const { pathname, hash } = useLocation();
     const close = useCallback(() => setOpen(false), []);
 
+    const role = localStorage.getItem('role')
+    const dashboard =  role === 'driver' ? '/driver' : '/user'
+
     // Shadow + blur once the page is scrolled
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 12);
@@ -168,7 +174,7 @@ function Navbar() {
                 <div className="hidden items-center gap-2 lg:flex">
                     {isLoggedIn ? (
                         <Link
-                            to="/dashboard"
+                            to={dashboard}
                             aria-label="Go to dashboard"
                             title="Dashboard"
                             className={`flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] text-[#0B1F3A] transition-colors hover:bg-[#DBEAFE] ${focusRing}`}
@@ -238,7 +244,7 @@ function Navbar() {
                             </Link>
                             {isLoggedIn ? (
                                 <Link
-                                    to="/dashboard"
+                                    to={dashboard}
                                     onClick={close}
                                     className={`flex items-center justify-center gap-2 rounded-lg border border-[#0B1F3A] py-2.5 text-sm font-semibold text-[#0B1F3A] hover:bg-[#DBEAFE] ${focusRing}`}
                                 >
@@ -270,6 +276,7 @@ function Navbar() {
     );
 }
 
+<<<<<<< HEAD
 =======
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -397,4 +404,6 @@ function Navbar() {
 }
 
 >>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
+=======
+>>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 export default Navbar;
