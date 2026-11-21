@@ -1,5 +1,5 @@
 // src/API/Truckapi.js
-import { BASE_URL, authHeaders } from "./Shipmentapi";
+import { apiRequest } from "./api";
 
 /* ===================================================================
    ENDPOINTS - change here if your backend routes are different.
@@ -13,13 +13,12 @@ const ENDPOINTS = {
 };
 
 const call = async (path, options = {}) => {
-    const res = await fetch(`${BASE_URL}${path}`, {
-        credentials: "include",
-        headers: authHeaders(),
-        ...options,
-    });
-    const json = await res.json().catch(() => ({}));
-    return { ok: res.ok, status: res.status, json };
+    try {
+        const json = await apiRequest(path, options);
+        return { ok: true, status: 200, json };
+    } catch (error) {
+        return { ok: false, status: error.status || 0, json: error.data || { message: error.message } };
+    }
 };
 
 const fail = (res, fallback) => {

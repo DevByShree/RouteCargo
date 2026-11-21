@@ -1,14 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { apiRequest } from "./api";
 
 async function request(path, options = {}) {
-  const form = typeof FormData !== "undefined" && options.body instanceof FormData;
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: { ...(!form ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || body.success === false) throw new Error(body.message || `HTTP ${response.status}`);
+  const body = await apiRequest(`/api${path}`, options);
+  if (body?.success === false) throw new Error(body.message || "Request failed");
   return body.data === undefined ? body : body.data;
 }
 

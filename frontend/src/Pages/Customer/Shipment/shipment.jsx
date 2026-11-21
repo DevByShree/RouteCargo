@@ -4,7 +4,7 @@ import {
     MapPin, Search, X, Info, ExternalLink, Plus, Minus, ArrowRight, ArrowUpDown,
     Sprout, Package, Route, Timer, Ruler, FileText, AlertCircle, Loader2,
 } from "lucide-react";
-import { createShipment, getLocations, getRouteInfo, getUserId } from "../../../../src/API/Shipmentapi";
+import { createShipment, getLocations, getRouteInfo } from "../../../API/Shipmentapi";
 
 // Route of the Parcel Details page (must match the path in your router)
 const PARCEL_ROUTE = "/user/parcel";
@@ -228,7 +228,10 @@ export default function Shipment() {
 
     /* ----- Fetch distance / time when both locations are valid ----- */
     useEffect(() => {
-        if (!valid) { setRoute(null); return; }
+        if (!valid) {
+            const timer = setTimeout(() => setRoute(null), 0);
+            return () => clearTimeout(timer);
+        }
         let cancelled = false;
         const timer = setTimeout(async () => {
             const info = await getRouteInfo(cityOf(pickup), cityOf(delivery));
@@ -254,19 +257,11 @@ export default function Shipment() {
 
         // The id of whoever is signed in right now (read when the button is clicked,
         // so it always matches the current user – nothing is hardcoded).
-        const userId = getUserId();
-        if (userId === null || userId === undefined || userId === "") {
-            setNeedsSignIn(true);
-            setApiError("You are not signed in. Please sign in again.");
-            return;
-        }
-
         setSubmitting(true);
         try {
             // POST /api/shipments -> { UserId, pickup, destination }
             // If the same shipment already exists (409) we continue with the existing one.
             const { shipment } = await createShipment({
-                userId,
                 pickup: cityOf(pickup),
                 destination: cityOf(delivery),
             });

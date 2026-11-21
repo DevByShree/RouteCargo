@@ -1,11 +1,7 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, User, LogOut, Truck, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { authAPI, getToken, removeToken } from "../API/api";
+import { useAuth } from "../Authentication/useAuth";
 
 // Replace with data from your notifications API
 const INITIAL_NOTIFICATIONS = [
@@ -18,37 +14,22 @@ const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible
 
 function DashboardNavbar() {
     const navigate = useNavigate();
+    const { user, signOut, updateUser } = useAuth();
     const [openMenu, setOpenMenu] = useState(null); // null | "notifications" | "profile"
-    const [user, setUser] = useState(null);
     const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
     const containerRef = useRef(null);
 
-
-    const role = localStorage.getItem('role')
-    const profilerole = role === 'driver' ? '/driver' : '/user'
-
-    // Load the logged-in user from the existing auth API
-    useEffect(() => {
-        const loadUser = async () => {
-            try {
-                const res = await authAPI.me();
-                if (res?.user) setUser(res.user);
-            } catch {
-                if (!getToken()) navigate("/signin", { replace: true });
-            }
-        };
-        loadUser();
-    }, [navigate]);
+    const profilerole = user?.role === "driver" ? "/driver" : "/user";
 
     // Keep the navbar user in sync when the profile name changes elsewhere (e.g. Profile page save)
     useEffect(() => {
         const onProfileUpdated = (e) => {
             const name = e?.detail?.name;
-            if (name) setUser((prev) => ({ ...prev, name }));
+            if (name) updateUser({ name });
         };
         window.addEventListener("profileUpdated", onProfileUpdated);
         return () => window.removeEventListener("profileUpdated", onProfileUpdated);
-    }, []);
+    }, [updateUser]);
 
     // Close any open dropdown on outside click or Escape
     useEffect(() => {
@@ -81,17 +62,11 @@ function DashboardNavbar() {
     const handleLogout = async () => {
         setOpenMenu(null);
         try {
-            await authAPI.signout();
+            await signOut();
         } catch {
-            // ignore signout errors; still clear local auth state
+            // Session state is cleared locally even if the network is unavailable.
         }
-        removeToken();
-        try {
-            localStorage.removeItem("role");
-        } catch {
-            // ignore
-        }
-        navigate("/signin");
+        navigate("/signin", { replace: true });
     };
 
     const panel = (isOpen) =>
@@ -217,72 +192,4 @@ function DashboardNavbar() {
     );
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 export default DashboardNavbar;
-=======
-import { Bell, ChevronDown } from "lucide-react";
-
-function DashboardNavbar() {
-    return (
-        <nav className="h-17 sticky top-0 z-40 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-                <div className="text-2xl">
-                    🚚
-                </div>
-
-                <div>
-                    <h1 className="text-xl font-bold text-blue-700 leading-none">
-                        Route<span className="text-green-500">Share</span>
-                    </h1>
-
-                    <p className="text-[7px] text-gray-400 mt-1">
-                        Move Together. Go Further.
-                    </p>
-                </div>
-            </div>
-
-            {/* Right Section */}
-            <div className="flex items-center gap-4 sm:gap-5">
-
-                {/* Notification */}
-                <button type="button" aria-label="Notifications" className="relative text-gray-600 hover:text-blue-600 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer" >
-                    <Bell size={19} />
-                    <span className="absolute top-1.5 right-1.5 w-[6px] h-[6px] bg-red-500 rounded-full"></span>
-                </button>
-
-                {/* Profile */}
-                <div className="flex items-center gap-2 cursor-pointer p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
-                        SJ
-                    </div>
-
-                    <div className="hidden sm:block leading-tight">
-                        <p className="text-xs font-semibold text-gray-800">
-                            Shree Joshi
-                        </p>
-
-                        <p className="text-[10px] text-gray-400">
-                            Customer
-                        </p>
-                    </div>
-
-                    <ChevronDown size={15} className="text-gray-500" />
-                </div>
-
-            </div>
-
-        </nav>
-    );
-}
-
-export default DashboardNavbar;
->>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
-=======
-export default DashboardNavbar;
->>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
-=======
-export default DashboardNavbar;
->>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead

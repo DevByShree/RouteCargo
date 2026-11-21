@@ -14,11 +14,8 @@ import {
     Plus,
     Camera,
     X,
-    Check,
     CheckCircle2,
     FileCheck,
-    Eye,
-    UploadCloud
 } from "lucide-react";
 
 import rohitAvatar from "../../assets/driver/rohit_avatar.png";

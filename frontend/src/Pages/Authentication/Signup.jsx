@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authAPI } from "../../API/api";
+import { useAuth } from "../../Authentication/useAuth";
 
 const Signup = () => {
     const navigate = useNavigate();
+    const { signIn } = useAuth();
+    const submitting = useRef(false);
     const [form, setForm] = useState({
         name: "",
         email: "",
+        phone: "",
         password: "",
-        role: "user",
+        role: "customer",
     });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -20,21 +24,24 @@ const Signup = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting.current) return;
+        submitting.current = true;
         setError("");
         setLoading(true);
         try {
-            await authAPI.signup({
+            const result = await authAPI.signup({
                 name: form.name,
                 email: form.email,
+                phone: form.phone,
                 password: form.password,
                 role: form.role,
             });
-            navigate("/signin", {
-                state: { message: "Account created successfully! Please sign in." },
-            });
+            signIn(result.user);
+            navigate(result.user.role === "driver" ? "/driver" : "/user", { replace: true });
         } catch (err) {
             setError(err.data?.message || "Signup failed. Please try again.");
         } finally {
+            submitting.current = false;
             setLoading(false);
         }
     };
@@ -70,6 +77,8 @@ const Signup = () => {
                         <input
                             type="text"
                             name="name"
+                            required
+                            minLength={2}
                             value={form.name}
                             onChange={handleChange}
                             placeholder="Enter your full name"
@@ -86,9 +95,27 @@ const Signup = () => {
                         <input
                             type="email"
                             name="email"
+                            required
+                            autoComplete="email"
                             value={form.email}
                             onChange={handleChange}
                             placeholder="Enter your email"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    <div className="mb-5">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Phone {form.role === "driver" ? "(required for drivers)" : "(optional)"}
+                        </label>
+                        <input
+                            type="tel"
+                            name="phone"
+                            required={form.role === "driver"}
+                            autoComplete="tel"
+                            value={form.phone}
+                            onChange={handleChange}
+                            placeholder="+919876543210"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500"
                         />
                     </div>
@@ -102,6 +129,8 @@ const Signup = () => {
                         <input
                             type="password"
                             name="password"
+                            required
+                            minLength={8}
                             value={form.password}
                             onChange={handleChange}
                             placeholder="Enter your password"
@@ -119,12 +148,12 @@ const Signup = () => {
                                 <input
                                     type="radio"
                                     name="role"
-                                    value="user"
-                                    checked={form.role === "user"}
+                                    value="customer"
+                                    checked={form.role === "customer"}
                                     onChange={handleChange}
                                     className="form-radio text-blue-600"
                                 />
-                                user
+                                Customer
                             </label>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input

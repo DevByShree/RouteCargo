@@ -1,11 +1,9 @@
 import { useEffect } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import DashboardNavbar from "./DashboardNavbar";
 
 function Layout() {
-    const token = localStorage.getItem("token");
-
     useEffect(() => {
         document.documentElement.classList.remove("dark");
         try {
@@ -14,10 +12,6 @@ function Layout() {
             // ignore
         }
     }, []);
-
-    if (!token) {
-        return <Navigate to="/signin" replace />;
-    }
 
     return (
         <div className="min-h-screen flex bg-slate-50 text-slate-900">

@@ -1,11 +1,8 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useState, useEffect, useCallback } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { FiMenu, FiX, FiGrid } from "react-icons/fi";
 import logo from "../assets/logo.png";
+import { useAuth } from "../Authentication/useAuth";
 
 const navLinks = [
     { label: "Home", to: "/" },
@@ -20,14 +17,6 @@ const NAV_OFFSET = 80; // height of the sticky navbar, used when scrolling to se
 const focusRing =
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#60A5FA] focus-visible:ring-offset-2";
 
-const readLoggedIn = () => {
-    try {
-        return Boolean(localStorage.getItem("token"));
-    } catch {
-        return false;
-    }
-};
-
 function scrollToHash(hash) {
     const el = hash && document.getElementById(hash.slice(1));
     if (!el) return false;
@@ -36,7 +25,7 @@ function scrollToHash(hash) {
     return true;
 }
 
-function NavItem({ link, className, activeClass, onNavigate, mobile }) {
+function NavItem({ link, className, activeClass, onNavigate }) {
     const { pathname, hash } = useLocation();
     const navigate = useNavigate();
 
@@ -83,12 +72,16 @@ function NavItem({ link, className, activeClass, onNavigate, mobile }) {
 function Navbar() {
     const [open, setOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(readLoggedIn);
+    const { user } = useAuth();
+    const isLoggedIn = Boolean(user);
     const { pathname, hash } = useLocation();
     const close = useCallback(() => setOpen(false), []);
 
-    const role = localStorage.getItem('role')
-    const dashboard =  role === 'driver' ? '/driver' : '/user'
+    const dashboard = user?.role === "driver" ? "/driver" : "/user";
+    const links = navLinks.map((link) => link.label !== "Find Trucks" ? link : {
+        ...link,
+        to: user?.role === "customer" ? "/user/Find" : user?.role === "driver" ? "/driver" : "/signin",
+    });
 
     // Shadow + blur once the page is scrolled
     useEffect(() => {
@@ -98,21 +91,10 @@ function Navbar() {
         return () => window.removeEventListener("scroll", onScroll);
     }, []);
 
-    // Keep login state in sync (login/logout in another tab, or after sign-in)
+    // Close the drawer on every route change. Login state is read on render.
     useEffect(() => {
-        const sync = () => setIsLoggedIn(readLoggedIn());
-        window.addEventListener("storage", sync);
-        window.addEventListener("focus", sync);
-        return () => {
-            window.removeEventListener("storage", sync);
-            window.removeEventListener("focus", sync);
-        };
-    }, []);
-
-    // Re-check login and close the drawer on every route change
-    useEffect(() => {
-        setIsLoggedIn(readLoggedIn());
-        setOpen(false);
+        const frame = requestAnimationFrame(() => setOpen(false));
+        return () => cancelAnimationFrame(frame);
     }, [pathname]);
 
     // Scroll to the section when the URL has a hash (also after navigating from another page)
@@ -150,8 +132,8 @@ function Navbar() {
         <nav
             aria-label="Main"
             className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${scrolled
-                ? "border-[#E2E8F0] bg-white/90 shadow-md shadow-slate-900/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/80"
-                : "border-transparent bg-white"
+                    ? "border-[#E2E8F0] bg-white/90 shadow-md shadow-slate-900/5 backdrop-blur-md supports-[backdrop-filter]:bg-white/80"
+                    : "border-transparent bg-white"
                 }`}
         >
             <div
@@ -165,7 +147,7 @@ function Navbar() {
 
                 {/* Desktop links */}
                 <div className="hidden items-center gap-7 lg:flex">
-                    {navLinks.map((link) => (
+                    {links.map((link) => (
                         <NavItem key={link.label} link={link} className={linkClass} activeClass={desktopActive} />
                     ))}
                 </div>
@@ -227,7 +209,7 @@ function Navbar() {
                             }`}
                     >
                         <div className="flex flex-col py-2">
-                            {navLinks.map((link) => (
+                            {links.map((link) => (
                                 <NavItem
                                     key={link.label}
                                     link={link}
@@ -276,134 +258,4 @@ function Navbar() {
     );
 }
 
-<<<<<<< HEAD
-=======
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { FiMenu, FiX, FiGrid } from "react-icons/fi";
-import logo from "../assets/logo.png";
-
-const navLinks = [
-    { label: "For Shippers", to: "/" },
-    { label: "For Drivers", to: "/" },
-    { label: "How It Works", href: "/#how-it-works" },
-    { label: "Pricing", to: "/" },
-    { label: "About", to: "/" },
-    { label: "Contact", to: "/" },
-];
-
-const focusRing = "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2";
-
-const checkLoggedIn = () => {
-    try {
-        return Boolean(localStorage.getItem("token"));
-    } catch {
-        return false;
-    }
-};
-
-function NavItem({ link, className, onClick }) {
-    if (link.href) {
-        return (
-            <a href={link.href} onClick={onClick} className={className}>
-                {link.label}
-            </a>
-        );
-    }
-    return (
-        <Link to={link.to} onClick={onClick} className={className}>
-            {link.label}
-        </Link>
-    );
-
-}
-
-function Navbar() {
-    const [open, setOpen] = useState(false);
-    const isLoggedIn = checkLoggedIn();
-    const close = () => setOpen(false);
-
-    const role = localStorage.getItem('role')
-    const link = role === 'driver' ? '/driver' : '/user'
-
-    useEffect(() => {
-        if (!open) return;
-        const onKey = (e) => e.key === "Escape" && setOpen(false);
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [open]);
-
-    const linkClass = `text-gray-700 hover:text-blue-600 font-medium transition-colors rounded ${focusRing}`;
-
-    return (
-        <nav aria-label="Main" className="w-full h-17 bg-white border-b border-gray-200">
-            <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3">
-                {/* Logo */}
-                <Link to="/" aria-label="RouteShare home" className={`rounded ${focusRing}`}>
-                    <img src={logo} alt="RouteShare" className="w-28 sm:w-32 lg:w-36 h-auto" />
-                </Link>
-
-                {/* Desktop links */}
-                <div className="hidden lg:flex items-center gap-8 text-sm">
-                    {navLinks.map((link) => (
-                        <NavItem key={link.label} link={link} className={linkClass} />
-                    ))}
-                </div>
-
-                {/* Desktop right side */}
-                <div className="hidden lg:flex items-center gap-3">
-                    {isLoggedIn ? (
-                        <Link to={link} aria-label="Go to dashboard" title="Dashboard" className={`w-11 h-11 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors ${focusRing}`} >
-                            <FiGrid size={20} />
-                        </Link>
-                    ) : (
-                        <>
-                            <Link to="/signin" className={`py-2.5 px-4 text-sm font-medium text-blue-600 hover:text-blue-700 rounded-lg transition-colors ${focusRing}`} >
-                                Login
-                            </Link>
-                            <Link to="/signup" className={`py-2.5 px-5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
-                                Sign Up
-                            </Link>
-                        </>
-                    )}
-                </div>
-
-                {/* Mobile menu button */}
-                <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-menu" aria-label={open ? "Close menu" : "Open menu"} className={`lg:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 ${focusRing}`} >
-                    {open ? <FiX size={24} /> : <FiMenu size={24} />}
-                </button>
-            </div>
-
-            {open && (
-                <div id="mobile-menu" className="lg:hidden border-t border-gray-200 px-4 sm:px-6 pb-5">
-                    <div className="flex flex-col py-2">
-                        {navLinks.map((link) => (
-                            <NavItem key={link.label} link={link} onClick={close} className={`py-3 border-b border-gray-100 ${linkClass}`} />
-                        ))}
-                    </div>
-                    <div className="flex gap-3 mt-3">
-                        {isLoggedIn ? (
-                            <Link to={link} onClick={close} className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
-                                <FiGrid size={18} /> Dashboard
-                            </Link>
-                        ) : (
-                            <>
-                                <Link to="/signin" onClick={close} className={`flex-1 text-center py-2.5 text-sm font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors ${focusRing}`} >
-                                    Login
-                                </Link>
-                                <Link to="/signup" onClick={close} className={`flex-1 text-center py-2.5 text-sm text-white font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors ${focusRing}`} >
-                                    Sign Up
-                                </Link>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-        </nav>
-    );
-}
-
->>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543
-=======
->>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 export default Navbar;

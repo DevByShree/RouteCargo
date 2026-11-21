@@ -5,7 +5,10 @@
     "type": "commonjs",
     "scripts": {
         "dev": "nodemon server.js",
-        "start": "node server.js"
+        "start": "node server.js",
+        "sync:driver-profiles": "node scripts/sync-driver-profiles.js",
+        "verify:driver-transaction": "node scripts/verify-driver-registration-transaction.js",
+        "test": "node --test"
     },
     "dependencies": {
         "bcryptjs": "^3.0.3",

@@ -1,65 +1,72 @@
-import express from "express";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const path = require("path");
 
-import authRoutes from "./routes/auth.js";
-import driverRoutes from "./routes/driver.js";
-import vehicleRoutes from "./routes/vehicles.js";
-import requestRoutes from "./routes/requests.js";
-import capacityRoutes from "./routes/capacity.js";
+const authRoutes = require("./routes/auth");
+const driverRoutes = require("./routes/driverRoutes");
+const shipmentRoutes = require("./routes/shipment");
+const parcelRoutes = require("./routes/parcel");
+const bookingRoutes = require("./routes/booking");
 
 const app = express();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadDir = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
+const allowedOrigins = (process.env.CLIENT_ORIGINS || process.env.CLIENT_URL || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(",").map(s => s.trim()) : true,
-  credentials: true
+  origin(origin, callback) {
+    callback(null, !origin || allowedOrigins.includes(origin) ? origin || false : false);
+  },
+  credentials: true,
 }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(uploadDir));
+app.use(cookieParser());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// Preserve the existing auth router. If your auth routes use a different prefix,
-// keep your current mount path and update the frontend API base URL accordingly.
+app.use("/api", (req, res, next) => {
+  const origin = req.get("origin");
+  const changesState = !["GET", "HEAD", "OPTIONS"].includes(req.method);
+  if (changesState && origin && !allowedOrigins.includes(origin)) {
+    return res.status(403).json({ success: false, message: "Origin is not allowed" });
+  }
+  return next();
+});
+
+app.get("/", (_req, res) => {
+  res.send("RouteCargo Backend is running!");
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/driver", driverRoutes);
-app.use("/api/driver/vehicles", vehicleRoutes);
-app.use("/api/driver/requests", requestRoutes);
-app.use("/api/driver/capacity", capacityRoutes);
+app.use("/api/shipments", shipmentRoutes);
+app.use("/api/parcel", parcelRoutes);
+app.use("/api/booking", bookingRoutes);
 
-app.get("/api/health", (_req, res) =>
-  res.json({
-    status: "ok", service: "RouteCargo API"
-  }));
-
-app.use((req, res) =>
+app.use((req, res) => {
   res.status(404).json({
-    message: `Route not found: ${req.method} ${req.originalUrl}`
-  }));
-
-app.use((err, req, res, _next) => {
-  console.error(err);
-  if (err.name === "MulterError") {
-    return res.status(400).json({
-      message: err.code === "LIMIT_FILE_SIZE" ? "File is too large." : err.message
-    });
-  }
-  if (err.name === "ValidationError") {
-    return res.status(400).json({
-      message: err.message
-    });
-  }
-  if (err.code === 11000) {
-    return res.status(409).json({
-      message: "A record with this value already exists.",
-      fields: err.keyValue
-    });
-  }
-  res.status(err.status || 500).json({
-    message: err.status ? err.message : "Internal server error."
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
   });
 });
 
-export default app;
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+
+  if (err.name === "MulterError") {
+    return res.status(400).json({
+      success: false,
+      message: err.code === "LIMIT_FILE_SIZE" ? "File is too large." : err.message,
+    });
+  }
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.status ? err.message : "Internal server error",
+  });
+});
+
+module.exports = app;

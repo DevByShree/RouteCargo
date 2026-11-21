@@ -84,7 +84,9 @@ function ProductImagesField({ images, onChange }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const imagesRef = useRef(images);
-  imagesRef.current = images;
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
@@ -447,8 +449,10 @@ export default function ParcelDetails() {
 
   const imagesRef = useRef(images);
   const parcelsRef = useRef(parcels);
-  imagesRef.current = images;
-  parcelsRef.current = parcels;
+  useEffect(() => {
+    imagesRef.current = images;
+    parcelsRef.current = parcels;
+  }, [images, parcels]);
   useEffect(
     () => () => {
       imagesRef.current.forEach((i) => URL.revokeObjectURL(i.url));

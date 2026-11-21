@@ -137,8 +137,8 @@ export function CountUp({ to, suffix = "", duration = 1200 }) {
         const el = ref.current;
         if (!el) return;
         if (!("IntersectionObserver" in window) || prefersReduced()) {
-            setN(to);
-            return;
+            const frame = requestAnimationFrame(() => setN(to));
+            return () => cancelAnimationFrame(frame);
         }
         let raf;
         const io = new IntersectionObserver(

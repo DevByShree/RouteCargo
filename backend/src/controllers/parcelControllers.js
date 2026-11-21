@@ -120,7 +120,7 @@ const createParcel = async (req, res) => {
         // 7. Shipment find aur ownership verify karna
         const shipment = await Shipment.findOne({
             shipmentid: validShipmentId,
-            userId: user.userId,
+            userId: user._id,
         });
 
         if (!shipment) {
@@ -147,7 +147,7 @@ const createParcel = async (req, res) => {
         const parcel = await Parcel.create({
             parcelId: counter.seq,
             shipmentId: validShipmentId,
-            userId: user.userId,
+            userId: user._id,
             productName: productName.trim(),
             parcelType: parcelType.trim(),
             numberOfPackages: packages,

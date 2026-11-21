@@ -27,7 +27,7 @@ const createShipment = async (req, res) => {
             });
         }
         const existingShipment = await Shipment.findOne({
-            userId: user.userId,
+            userId: user._id,
             pickup: pickup.trim(),
             destination: destination.trim(),
         });
@@ -54,7 +54,7 @@ const createShipment = async (req, res) => {
         // 4. Create shipment
         const shipment = await Shipment.create({
             shipmentid: counter.seq,
-            userId: user.userId,
+            userId: user._id,
             pickup: pickup.trim(),
             destination: destination.trim(),
         });

@@ -1,5 +1,5 @@
 // src/API/Parcelapi.js
-import { BASE_URL, authHeaders } from "./Shipmentapi";
+import { apiRequest } from "./api";
 
 /** Id of the shipment created on the previous page (survives a page refresh). */
 export function getShipmentId(shipment) {
@@ -47,32 +47,18 @@ export async function createParcel({ shipmentId, productName, parcelType, number
         throw new Error("Shipment not found. Go back and create the shipment first.");
     }
 
-    const res = await fetch(`${BASE_URL}/api/parcel`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
-        body: JSON.stringify({
-            shipmentId,
-            productName,
-            parcelType,
-            numberOfPackages,
-            productImages,
-            description,
-        }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (res.status === 401 || res.status === 403) {
-        const e = new Error(data.message || "Your session has expired. Please sign in again.");
-        e.code = "NOT_SIGNED_IN";
-        throw e;
+    try {
+        const data = await apiRequest("/api/parcel", {
+            method: "POST",
+            body: JSON.stringify({ shipmentId, productName, parcelType, numberOfPackages, productImages, description }),
+        });
+        return data.parcel || data.data || data;
+    } catch (error) {
+        if (error.status === 401 || error.status === 403) error.code = "NOT_SIGNED_IN";
+        if (error.status === 413) {
+            error.message = "Images are too large for the server. Remove some photos or raise the server's JSON body limit.";
+        }
+        if (!error.message) error.message = `Could not save "${productName}".`;
+        throw error;
     }
-    if (res.status === 413) {
-        throw new Error("Images are too large for the server. Remove some photos or raise the server's JSON body limit.");
-    }
-    if (!res.ok || data.success === false) {
-        throw new Error(data.message || data.error || `Could not save "${productName}" (${res.status}).`);
-    }
-    return data.parcel || data.data || data;
 }

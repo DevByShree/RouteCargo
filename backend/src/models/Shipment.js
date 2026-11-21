@@ -8,8 +8,8 @@ const ShipmentSchema = new mongoose.Schema(
             required: true,
         },
         userId: {
-            type: Number,
-            unique: true,
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             index: true,
         },
         pickup: {

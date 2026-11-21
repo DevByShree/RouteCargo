@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
     ownerName: { type: String, required: true, trim: true, maxlength: 100 },
-    contactNumber: { type: String, required: true, trim: true, maxlength: 20 },
+    contactNumber: { type: String, trim: true, maxlength: 20, default: '' },
     email: { type: String, trim: true, lowercase: true },
     altNumber: { type: String, trim: true, default: '' },
     address: { type: String, trim: true, default: '' },

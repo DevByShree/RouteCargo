@@ -16,7 +16,8 @@ const parcelSchema = new mongoose.Schema(
         },
 
         userId: {
-            type: Number,
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
             required: true,
             index: true,
         },

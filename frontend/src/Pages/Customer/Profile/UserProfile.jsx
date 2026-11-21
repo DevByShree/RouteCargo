@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD:frontend/src/Pages/Customer/Profile/Profile.jsx
-=======
->>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
 import { useEffect, useRef, useState } from "react";
 import { authAPI } from "../../../API/api";
 import { User, Mail, Phone, Building2, Pencil, Check, X, AlertCircle, BadgeCheck } from "lucide-react";
@@ -109,8 +105,6 @@ export default function Profile() {
                 phone: draft.phone.trim(),
                 company: draft.company.trim(),
             };
-            // NOTE: your backend must accept phone and company too, otherwise they won't persist after a refresh.
-            // If it rejects unknown fields, remove them from this payload.
             const res = await authAPI.updateMe(payload);
             const next = normalize({ ...user, ...payload, ...(res?.user || {}) });
             setUser(next);
@@ -242,8 +236,8 @@ export default function Profile() {
                                                 <>
                                                     <div
                                                         className={`flex h-11 items-center gap-2 rounded-lg border bg-white px-3 transition focus-within:ring-2 ${err
-                                                            ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
-                                                            : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"
+                                                                ? "border-red-300 focus-within:border-red-400 focus-within:ring-red-100"
+                                                                : "border-slate-200 focus-within:border-blue-500 focus-within:ring-blue-100"
                                                             }`}
                                                     >
                                                         <Icon className="h-4 w-4 shrink-0 text-slate-500" />
@@ -305,98 +299,4 @@ export default function Profile() {
             </main>
         </div>
     );
-<<<<<<< HEAD
-<<<<<<< HEAD
 }
-=======
-import { useState } from "react";
-
-function UserProfile() {
-    const [editing, setEditing] = useState(false);
-    const [user, setUser] = useState({
-        name: "Shree Joshi",
-        email: "shree@example.com",
-        phone: "9876543210",
-        company: "RouteShare Logistics",
-    });
-    const [draft, setDraft] = useState(user);
-
-    const handleChange = (e) => setDraft({ ...draft, [e.target.name]: e.target.value });
-
-    const handleSave = () => {
-        setUser(draft);
-        setEditing(false);
-    };
-
-    const handleCancel = () => {
-        setDraft(user);
-        setEditing(false);
-    };
-
-    const fields = [
-        { name: "name", label: "Full Name" },
-        { name: "email", label: "Email" },
-        { name: "phone", label: "Phone" },
-        { name: "company", label: "Company" },
-    ];
-    return (
-        <div className="px-10 mt-10 max-w-xl">
-            <h1 className="text-3xl font-bold">Profile</h1>
-            <p className="text-gray-600 mb-6">Manage your personal details.</p>
-
-            <div className="bg-white rounded-xl shadow-sm p-6">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 rounded-full bg-blue-600 text-white text-xl font-bold flex items-center justify-center">
-                        {user.name.split(" ").map((w) => w[0]).join("")}
-                    </div>
-                    <div>
-                        <p className="font-semibold text-lg">{user.name}</p>
-                        <p className="text-sm text-gray-500">Customer</p>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-4">
-                    {fields.map((f) => (
-                        <div key={f.name}>
-                            <label className="text-sm text-gray-500">{f.label}</label>
-                            {editing ? (
-                                <input
-                                    name={f.name}
-                                    value={draft[f.name]}
-                                    onChange={handleChange}
-                                    className="w-full border rounded-lg px-3 py-2 mt-1"
-                                />
-                            ) : (
-                                <p className="font-medium">{user[f.name]}</p>
-                            )}
-                        </div>
-                    ))}
-                </div>
-                <div className="flex gap-3 mt-6">
-                    {editing ? (
-                        <>
-                            <button onClick={handleSave} className="bg-blue-600 text-white px-5 py-2 rounded-lg">
-                                Save
-                            </button>
-                            <button onClick={handleCancel} className="border px-5 py-2 rounded-lg">
-                                Cancel
-                            </button>
-                        </>
-                    ) : (
-                        <button onClick={() => setEditing(true)} className="bg-blue-600 text-white px-5 py-2 rounded-lg">
-                            Edit Profile
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export default UserProfile;
->>>>>>> 70b053697d292abc5ba02ed2984539de8b4cb543:frontend/src/Pages/Customer/Profile/UserProfile.jsx
-=======
-}
->>>>>>> 96d284424f2df9dbc6d4d4a4c2f2a1ceae46b657
-=======
-}
->>>>>>> 56df870949908fa44df9adeccb225d2ffe3e3ead

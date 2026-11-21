@@ -3,8 +3,8 @@ const router = express.Router();
 
 
 const { createShipment } = require("../controllers/shipmentController");
-const { authenticate } = require("../middleware/authMiddleware");
+const { authenticate, authorize } = require("../middleware/authMiddleware");
 
-router.post("/", authenticate, createShipment);
+router.post("/", authenticate, authorize("customer"), createShipment);
 
 module.exports = router;
