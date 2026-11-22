@@ -1,6 +1,6 @@
 const apiEnvironment = import.meta.env || {};
 const configuredBase = apiEnvironment.VITE_API_BASE || apiEnvironment.VITE_API_URL || apiEnvironment.VITE_BASE_URL || "http://localhost:5000";
-const API_BASE = configuredBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
+export const API_BASE = configuredBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
 let refreshInFlight;
 
 function makeApiError(response, data) {
@@ -67,7 +67,11 @@ export async function apiRequest(endpoint, options = {}, { skipRefresh = false }
       await refreshSession();
       response = await send(endpoint, options);
     } catch (error) {
-      if (typeof window !== "undefined") window.dispatchEvent(new Event("routecargo:auth-expired"));
+      // Only an explicit refresh rejection proves the session is invalid. A
+      // network error or server outage must not clear the user's auth state.
+      if ([401, 403].includes(error.status) && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("routecargo:auth-expired"));
+      }
       throw error;
     }
   }
@@ -80,10 +84,31 @@ export async function apiRequest(endpoint, options = {}, { skipRefresh = false }
 export const authAPI = {
   signup: (data) => apiRequest("/api/auth/signup", { method: "POST", body: JSON.stringify(data) }),
   signin: (data) => apiRequest("/api/auth/signin", { method: "POST", body: JSON.stringify(data) }, { skipRefresh: true }),
-  refresh: () => apiRequest("/api/auth/refresh", { method: "POST" }, { skipRefresh: true }),
+  // Use the same single-flight + cross-tab lock used for expired access tokens.
+  refresh: () => refreshSession(),
   me: () => apiRequest("/api/auth/me"),
   signout: () => apiRequest("/api/auth/signout", { method: "POST" }, { skipRefresh: true }),
   updateMe: (data) => apiRequest("/api/auth/me", { method: "PUT", body: JSON.stringify(data) }),
+  uploadProfilePhoto: (file) => {
+    const form = new FormData();
+    form.append("photo", file);
+    return apiRequest("/api/auth/me/photo", { method: "POST", body: form });
+  },
+  removeProfilePhoto: () => apiRequest("/api/auth/me/photo", { method: "DELETE" }),
+};
+
+export const bookingAPI = {
+  create: (data) => apiRequest("/api/booking", { method: "POST", body: JSON.stringify(data) }),
+  mine: () => apiRequest("/api/booking/my-bookings"),
+  get: (id) => apiRequest(`/api/booking/${encodeURIComponent(id)}`),
+  tracking: (id) => apiRequest(`/api/booking/${encodeURIComponent(id)}/tracking`),
+  cancel: (id) => apiRequest(`/api/booking/${encodeURIComponent(id)}`, { method: "DELETE" }),
+};
+
+export const notificationAPI = {
+  list: () => apiRequest("/api/notifications"),
+  markRead: (id) => apiRequest(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
+  markAllRead: () => apiRequest("/api/notifications/read-all", { method: "PATCH" }),
 };
 
 export const shipmentAPI = {

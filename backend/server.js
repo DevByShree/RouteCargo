@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const http = require("http");
 require("dotenv").config();
 
 const app = require("./src/app");
 const { ensureAuthIndexes } = require("./src/config/authIndexes");
+const { createSocketServer } = require("./src/realtime/socketServer");
 
 async function startServer() {
   try {
@@ -18,7 +20,11 @@ async function startServer() {
     await ensureAuthIndexes();
 
     const port = process.env.PORT || 5000;
-    app.listen(port, () => {
+    const server = http.createServer(app);
+    const allowedOrigins = (process.env.CLIENT_ORIGINS || process.env.CLIENT_URL || "http://localhost:5173")
+      .split(",").map(origin => origin.trim()).filter(Boolean);
+    createSocketServer(server, allowedOrigins);
+    server.listen(port, () => {
       console.log(`Server running on http://localhost:${port}`);
     });
   } catch (error) {

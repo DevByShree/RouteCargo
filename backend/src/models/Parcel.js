@@ -48,6 +48,7 @@ const parcelSchema = new mongoose.Schema(
             min: 1,
             default: 1,
         },
+        weightKg: { type: Number, min: 0, default: 0 },
 
         productImages: [
             {

@@ -24,6 +24,8 @@ const schema = new mongoose.Schema({
         required: true,
         min: 0
     },
+    initialCapacityKg: { type: Number, min: 0, default: null },
+    availableCapacityKg: { type: Number, min: 0, default: null },
 
     capacityUnit: {
         type: String,
@@ -46,6 +48,10 @@ const schema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    intermediateStops: { type: [String], default: [] },
+    expectedArrivalDate: { type: Date, default: null },
+    price: { type: Number, min: 0, default: null },
+    priceType: { type: String, enum: ['fixed', 'negotiable'], default: 'negotiable' },
 
     loadTypes: {
         type: [String],
@@ -69,12 +75,15 @@ const schema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ['available', 'booked', 'expired', 'cancelled'],
+        enum: ['draft', 'available', 'booking_requested', 'booked', 'in_transit', 'completed', 'expired', 'cancelled'],
         default: 'available'
     }
 },
     {
         timestamps: true
     });
+
+schema.index({ status: 1, from: 1, to: 1, date: 1, availableCapacityKg: 1 });
+schema.index({ driverId: 1, status: 1, date: 1 });
     
 module.exports = mongoose.model('CapacityPost', schema);

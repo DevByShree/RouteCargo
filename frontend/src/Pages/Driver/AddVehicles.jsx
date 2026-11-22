@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Truck, Pencil, Trash2, Save, X, FileText, UploadCloud, Eye } from "lucide-react";
 import { driverApi } from "../../API/driverApi";
-const blank = { name: "", number: "", type: "Tata 14 Wheeler", capacity: "", capacityUnit: "tons", fuelType: "Diesel", modelYear: "", available: true, documents: [], photos: [] };
+import { useFormDraft } from "../../Authentication/useFormDraft";
+const blank = { name: "", number: "", type: "Tata 14 Wheeler", capacity: "", capacityUnit: "tons", fuelType: "Diesel", modelYear: "", dimensions: { lengthCm: "", widthCm: "", heightCm: "" }, volumeCapacityM3: "", axles: "", available: true, documents: [], photos: [] };
+const vehicleDraftFields = ["name", "type", "capacity", "capacityUnit", "fuelType", "modelYear", "volumeCapacityM3", "axles", "available"];
+const pickVehicleDraft = value => ({ ...Object.fromEntries(vehicleDraftFields.map(key => [key, value[key]])), dimensions: value.dimensions });
+const validVehicleDraft = value => value && typeof value === "object"
+  && vehicleDraftFields.every(key => key === "available" ? typeof value[key] === "boolean" : typeof value[key] === "string")
+  && value.dimensions && ["lengthCm", "widthCm", "heightCm"].every(key => typeof value.dimensions[key] === "string");
 const field = "w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 const label = "mb-1 block text-xs font-semibold text-slate-600";
 const apiOrigin = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
@@ -12,8 +18,8 @@ const vehicleTypes = ["Tata 14 Wheeler", "Ashok Leyland 16 Wheeler", "Eicher 12 
 export default function AddVehicles() {
   const navigate = useNavigate();
   const [trucks, setTrucks] = useState([]);
-  const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
+  const [form, setForm, clearVehicleDraft] = useFormDraft({ formId: "vehicle-registration", initialValue: blank, pick: pickVehicleDraft, validate: validVehicleDraft, enabled: !editingId });
   const [message, setMessage] = useState("");
   const [previewDocument, setPreviewDocument] = useState(null);
   useEffect(() => { driverApi.listVehicles().then(setTrucks).catch(e => setMessage(e.message)); }, []);
@@ -30,14 +36,14 @@ export default function AddVehicles() {
     }
     change(key, form[key].filter(f => f.id !== id));
   };
-  const reset = () => { setForm(blank); setEditingId(null); };
+  const reset = () => { clearVehicleDraft(); setEditingId(null); };
   const submit = async e => {
     e.preventDefault();
     if (!form.name.trim() || !form.number.trim() || !form.capacity || Number(form.capacity) <= 0) { setMessage("Enter a vehicle name, registration number and valid capacity."); return; }
     const duplicate = trucks.some(t => t.number.toLowerCase() === form.number.trim().toLowerCase() && t.id !== editingId);
     if (duplicate) { setMessage("This registration number already exists."); return; }
     try {
-      const payload = { name: form.name.trim(), number: form.number.trim().toUpperCase(), type: form.type, capacity: Number(form.capacity), capacityUnit: form.capacityUnit, fuelType: form.fuelType, modelYear: form.modelYear || null, available: form.available };
+      const payload = { name: form.name.trim(), number: form.number.trim().toUpperCase(), type: form.type, capacity: Number(form.capacity), capacityUnit: form.capacityUnit, fuelType: form.fuelType, modelYear: form.modelYear || null, dimensions: Object.fromEntries(Object.entries(form.dimensions || {}).map(([key, value]) => [key, value === "" ? null : Number(value)])), volumeCapacityM3: form.volumeCapacityM3 === "" ? null : Number(form.volumeCapacityM3), axles: form.axles === "" ? null : Number(form.axles), available: form.available };
       const result = editingId ? await driverApi.updateVehicle(editingId, payload) : await driverApi.createVehicle(payload);
       const vehicle = result?.data || result;
       const photos = form.photos.filter(f => f.file).map(f => f.file);
@@ -46,7 +52,7 @@ export default function AddVehicles() {
       setTrucks(await driverApi.listVehicles()); setMessage(editingId ? "Vehicle updated successfully." : "Vehicle added successfully."); reset();
     } catch (error) { setMessage(error.message); }
   };
-  const edit = truck => { const mapFiles = files => (files || []).map((file, index) => ({ ...file, id: file._id || file.id || `${file.url || file.name}-${index}`, name: file.originalName || file.name || "Vehicle file" })); setForm({ ...blank, ...truck, documents: mapFiles(truck.documents), photos: mapFiles(truck.photos) }); setEditingId(truck.id); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const edit = truck => { const mapFiles = (files, isDocument = false) => (files || []).map((file, index) => { const storedName = file.url ? decodeURIComponent(file.url.split("/").pop()) : ""; return { ...file, url: isDocument && storedName ? `/api/driver/vehicles/${truck.id}/documents/${encodeURIComponent(storedName)}` : file.url, id: file._id || file.id || `${file.url || file.name}-${index}`, name: file.originalName || file.name || "Vehicle file" }; }); setForm({ ...blank, ...truck, documents: mapFiles(truck.documents, true), photos: mapFiles(truck.photos) }); setEditingId(truck.id); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const remove = async id => { if (window.confirm("Delete this vehicle?")) try { await driverApi.deleteVehicle(id); setTrucks(await driverApi.listVehicles()); setMessage("Vehicle deleted successfully."); } catch (error) { setMessage(error.message); } };
   return <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl">
     <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-bold text-slate-900">Add Vehicles</h1><p className="mt-1 text-sm text-slate-500">Register trucks, upload vehicle photos and keep documents together.</p></div><button onClick={()=>navigate("/driver/profile")} className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">Back to Profile</button></header>
@@ -60,6 +66,11 @@ export default function AddVehicles() {
         <label><span className={label}>Capacity Unit</span><select className={field} value={form.capacityUnit} onChange={e=>change("capacityUnit",e.target.value)}><option value="tons">Tons</option><option value="kg">Kilograms</option><option value="cubic meters">Cubic meters</option><option value="packages">Packages</option></select></label>
         <label><span className={label}>Fuel Type</span><select className={field} value={form.fuelType} onChange={e=>change("fuelType",e.target.value)}>{["Diesel","CNG","Electric","Petrol","LNG","Other"].map(v=><option key={v}>{v}</option>)}</select></label>
         <label><span className={label}>Model Year</span><input className={field} type="number" min="1980" max={new Date().getFullYear()+1} value={form.modelYear} onChange={e=>change("modelYear",e.target.value)} placeholder="e.g. 2023"/></label>
+        <label><span className={label}>Length (cm)</span><input className={field} type="number" min="0" value={form.dimensions?.lengthCm ?? ""} onChange={e=>change("dimensions",{...form.dimensions,lengthCm:e.target.value})}/></label>
+        <label><span className={label}>Width (cm)</span><input className={field} type="number" min="0" value={form.dimensions?.widthCm ?? ""} onChange={e=>change("dimensions",{...form.dimensions,widthCm:e.target.value})}/></label>
+        <label><span className={label}>Height (cm)</span><input className={field} type="number" min="0" value={form.dimensions?.heightCm ?? ""} onChange={e=>change("dimensions",{...form.dimensions,heightCm:e.target.value})}/></label>
+        <label><span className={label}>Volume Capacity (m³)</span><input className={field} type="number" min="0" step="0.1" value={form.volumeCapacityM3 ?? ""} onChange={e=>change("volumeCapacityM3",e.target.value)}/></label>
+        <label><span className={label}>Number of Axles</span><input className={field} type="number" min="1" max="20" value={form.axles ?? ""} onChange={e=>change("axles",e.target.value)}/></label>
         <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3"><input type="checkbox" checked={form.available !== false} onChange={e=>change("available",e.target.checked)} className="h-4 w-4 accent-blue-600"/><span className="text-sm font-medium text-slate-700">Vehicle available for bookings</span></label>
       </div>
       <div className="mt-6 grid gap-5 lg:grid-cols-2">

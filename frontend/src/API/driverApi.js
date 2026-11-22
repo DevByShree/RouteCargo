@@ -8,6 +8,14 @@ async function request(path, options = {}) {
 
 const json = (method, data) => ({ method, body: JSON.stringify(data) });
 const idOf = item => item?._id || item?.id;
+const indiaDateKey = value => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter(part => part.type !== "literal").map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
 
 export const normalizeVehicle = vehicle => ({ ...vehicle, id: idOf(vehicle) });
 export const normalizeCapacity = post => ({
@@ -20,7 +28,7 @@ export const normalizeCapacity = post => ({
   totalCapacity: post.vehicleId?.capacity,
   contactName: post.contactName || post.driverId?.name || "",
   contactPhone: post.contactPhone || post.contactNumber || "",
-  date: post.date ? String(post.date).slice(0, 10) : "",
+  date: indiaDateKey(post.date),
   status: post.status === "available" ? "Available" : post.status,
 });
 const statusToApi = { Pending: "pending", Accepted: "accepted", Rejected: "rejected", "In Transit": "in_transit", Completed: "completed" };
@@ -54,8 +62,26 @@ export const driverApi = {
   listRequests: async () => (await request("/driver/requests")).map(normalizeRequest),
   updateRequestStatus: (id, status) => request(`/driver/requests/${id}/status`, json("PATCH", { status: statusToApi[status] || status })),
   listCapacity: async () => (await request("/driver/capacity")).map(normalizeCapacity),
-  listPublicCapacity: async () => (await request("/driver/available-capacity")).map(normalizeCapacity),
+  listPublicCapacity: async filters => {
+    const params = new URLSearchParams(Object.entries(filters || {}).filter(([, value]) => value != null && value !== ""));
+    const suffix = params.size ? `?${params}` : "";
+    return (await request(`/driver/available-capacity${suffix}`)).map(post => ({
+      ...post,
+      id: idOf(post),
+      vehicleName: post.vehicle?.name || post.vehicleName || "Truck",
+      vehicleType: post.vehicle?.type || post.vehicleType || "",
+      vehicleCapacity: post.vehicle?.capacity,
+      photos: post.photos || post.vehicle?.photos || [],
+      driverName: post.driver?.name || post.companyName || "Driver",
+      date: indiaDateKey(post.date),
+    }));
+  },
   createCapacity: data => request("/driver/capacity", json("POST", data)),
   updateCapacity: (id, data) => request(`/driver/capacity/${id}`, json("PUT", data)),
   deleteCapacity: id => request(`/driver/capacity/${id}`, { method: "DELETE" }),
+  listBookings: async () => (await request("/booking/driver")).map(item => ({ ...item, id: idOf(item), status: item.status })),
+  acceptBooking: id => request(`/booking/${id}/accept`, json("PUT", {})),
+  rejectBooking: id => request(`/booking/${id}/reject`, json("PUT", {})),
+  updateBookingStatus: (id, status) => request(`/booking/${id}/status`, json("PUT", { status })),
+  updateTrackingLocation: (id, position) => request(`/booking/${encodeURIComponent(id)}/tracking`, json("POST", position)),
 };

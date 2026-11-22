@@ -1,14 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, User, LogOut, Truck, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../Authentication/useAuth";
-
-// Replace with data from your notifications API
-const INITIAL_NOTIFICATIONS = [
-    { id: 1, title: "Booking accepted", text: "Patil Logistics accepted your request #BK2026092107.", time: "10 min ago", unread: true },
-    { id: 2, title: "Shipment in transit", text: "Your shipment #BK2026091514 is on the way to Thane.", time: "2 hours ago", unread: true },
-    { id: 3, title: "Payment received", text: "₹ 8,500 paid for booking #SH00123.", time: "Yesterday", unread: false },
-];
+import { API_BASE, notificationAPI } from "../API/api";
+import { io } from "socket.io-client";
 
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 
@@ -16,10 +11,54 @@ function DashboardNavbar() {
     const navigate = useNavigate();
     const { user, signOut, updateUser } = useAuth();
     const [openMenu, setOpenMenu] = useState(null); // null | "notifications" | "profile"
-    const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState([]);
+    const [toastNotification, setToastNotification] = useState(null);
     const containerRef = useRef(null);
 
     const profilerole = user?.role === "driver" ? "/driver" : "/user";
+
+    const loadNotifications = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            const result = await notificationAPI.list();
+            setNotifications((result.data || []).map(item => ({ id: item._id, title: item.title, text: item.message, time: new Date(item.createdAt).toLocaleString(), unread: !item.readAt, type: item.type, bookingId: item.bookingId })));
+        } catch { /* Retain the last successful list when offline. */ }
+    }, [user?.id]);
+
+    useEffect(() => {
+        const initialLoad = window.setTimeout(loadNotifications, 0);
+        const timer = window.setInterval(loadNotifications, 20000);
+        return () => {
+            window.clearTimeout(initialLoad);
+            window.clearInterval(timer);
+        };
+    }, [loadNotifications]);
+
+    useEffect(() => {
+        if (!user?.id) return undefined;
+        const socket = io(API_BASE, { withCredentials: true });
+        socket.on("connect", loadNotifications);
+        socket.on("notification:new", item => {
+            const notification = {
+                id: item.id,
+                title: item.title,
+                text: item.message,
+                time: new Date(item.createdAt || Date.now()).toLocaleString(),
+                unread: true,
+                type: item.type,
+                bookingId: item.bookingId,
+            };
+            setNotifications(current => [notification, ...current.filter(existing => existing.id !== notification.id)].slice(0, 50));
+            setToastNotification(notification);
+        });
+        return () => socket.disconnect();
+    }, [user?.id, loadNotifications]);
+
+    useEffect(() => {
+        if (!toastNotification) return undefined;
+        const timer = window.setTimeout(() => setToastNotification(null), 7000);
+        return () => window.clearTimeout(timer);
+    }, [toastNotification]);
 
     // Keep the navbar user in sync when the profile name changes elsewhere (e.g. Profile page save)
     useEffect(() => {
@@ -56,8 +95,19 @@ function DashboardNavbar() {
         setOpenMenu(null);
         navigate(path);
     };
-    const markAllRead = () => setNotifications((list) => list.map((n) => ({ ...n, unread: false })));
-    const markRead = (id) => setNotifications((list) => list.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+    const markAllRead = async () => { await notificationAPI.markAllRead(); await loadNotifications(); };
+    const openNotification = async (notification) => {
+        try { await notificationAPI.markRead(notification.id); } catch { /* Keep navigation available if marking read fails. */ }
+        setToastNotification(null);
+        setOpenMenu(null);
+        const target = notification.bookingId
+            ? user?.role === "driver"
+                ? `/driver/my-requests?bookingId=${encodeURIComponent(notification.bookingId)}`
+                : `/user/track?bookingId=${encodeURIComponent(notification.bookingId)}`
+            : null;
+        if (target) navigate(target);
+        await loadNotifications();
+    };
 
     const handleLogout = async () => {
         setOpenMenu(null);
@@ -76,6 +126,7 @@ function DashboardNavbar() {
     return (
         // On mobile the sidebar's fixed top bar (h-14) sits above this, so we stick just below it
         <nav className="sticky top-14 z-40 flex h-[68px] items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 md:top-0 lg:px-8">
+            {toastNotification && <button type="button" onClick={() => openNotification(toastNotification)} className="fixed right-4 top-[76px] z-[80] max-w-sm rounded-xl border border-blue-200 bg-white p-4 text-left shadow-xl" role="status"><span className="block text-sm font-bold text-slate-900">{toastNotification.title}</span><span className="mt-1 block text-sm text-slate-600">{toastNotification.text}</span></button>}
             {/* Logo (hidden on mobile: the sidebar top bar already shows it) */}
             <button
                 type="button"
@@ -128,7 +179,7 @@ function DashboardNavbar() {
                                 <li key={n.id}>
                                     <button
                                         type="button"
-                                        onClick={() => markRead(n.id)}
+                                        onClick={() => openNotification(n)}
                                         className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${n.unread ? "bg-blue-50/40" : ""}`}
                                     >
                                         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.unread ? "bg-blue-600" : "bg-transparent"}`} aria-hidden="true" />
@@ -157,9 +208,7 @@ function DashboardNavbar() {
                         aria-expanded={openMenu === "profile"}
                         className={`flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 transition-colors hover:bg-slate-100 ${focusRing}`}
                     >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">
-                            {initials}
-                        </span>
+                        {user?.profilePhoto ? <img src={`${API_BASE}${user.profilePhoto}`} alt={`${userName} profile`} className="h-9 w-9 shrink-0 rounded-full object-cover" /> : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-700 text-sm font-semibold text-white">{initials}</span>}
                         <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 motion-reduce:transition-none ${openMenu === "profile" ? "rotate-180" : ""}`} />
                     </button>
 

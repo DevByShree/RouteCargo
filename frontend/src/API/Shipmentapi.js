@@ -1,14 +1,16 @@
 import { apiRequest } from "./api";
+export { rememberCurrentShipment, getRememberedShipment, clearRememberedShipment } from "./currentShipmentStorage.js";
 
 export const BASE_URL = (import.meta.env.VITE_API_BASE || import.meta.env.VITE_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
 
-export async function createShipment({ pickup, destination }) {
+export async function createShipment({ pickup, destination, pickupDate }) {
     try {
         const data = await apiRequest("/api/shipments", {
             method: "POST",
             body: JSON.stringify({
                 pickup: pickup.trim().toLowerCase(),
                 destination: destination.trim().toLowerCase(),
+                pickupDate,
             }),
         });
         return { shipment: data.shipment || data.data || data };
@@ -118,14 +120,4 @@ const CITIES = [
 /** Predefined city suggestions (no backend endpoint needed). */
 export async function getLocations() {
     return { pickup: CITIES, delivery: CITIES };
-}
-
-export async function getRouteInfo(from, to) {
-    try {
-        return await apiRequest(
-            `/api/shipments/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-        );
-    } catch {
-        return null;
-    }
 }

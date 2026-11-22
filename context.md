@@ -1,93 +1,80 @@
-# RouteCargo — Project Work Context & State
+# RouteCargo — Project Work Context
 
-This document tracks the current system state, architecture, authentication flow, and changelog of work performed.
+**Last source audit:** 2026-11-22
+This is a source-based implementation snapshot, not evidence of production operation. Keep secrets out of this file.
 
----
+## 1. Stack and structure
 
-## 1. System Overview
+- Frontend: React 19, React Router 7, Tailwind CSS 4, Vite 8, Axios, Leaflet/React-Leaflet, Socket.IO client, lucide-react and react-icons.
+- Backend: Node.js, Express 5, Mongoose 9, MongoDB, JWT, bcryptjs, cookie-parser, multer, Socket.IO.
+- Backend code is organized into routes, controllers, middleware, models, config, realtime, and utils. No separate services layer was found.
+- MongoDB models: User, AuthSession, DriverProfile, Vehicle, CapacityPost, CargoRequest, Shipment, Parcel, Booking, TrackingLocation, Notification, Counter.
+- Frontend and backend have separate package.json/package-lock.json files.
 
-- **Frontend:** React 19, React Router v7, Tailwind CSS v4, Vite 8, `lucide-react`, `react-icons`.
-- **Backend:** Node.js, Express 5, Mongoose 9 (MongoDB), JWT (`jsonwebtoken`), cookies (`cookie-parser`), CORS (`cors`).
-- **Database:** MongoDB via Mongoose connection (`MONGO_URI`).
+## 2. Authentication and authorization
 
----
+- Signup/signin use POST /api/auth/signup and POST /api/auth/signin. User roles are customer and driver.
+- Passwords are stored as bcrypt hashes. Access JWTs are short-lived; refresh tokens are rotated and tracked as hashed AuthSession records.
+- REST requests authenticate via the rc_access cookie or Authorization Bearer token; Socket.IO authenticates using the cookie and verifies an active session.
+- Protected routes enforce role restrictions and relevant record ownership. Signout revokes the session and disconnects its sockets.
+- CORS uses CLIENT_ORIGINS, with CLIENT_URL fallback; credentialed requests are enabled. Cookie settings include SameSite and secure behavior based on environment/configuration.
+- This source audit did not include a production security assessment.
 
-## 2. Authentication & Routing Architecture
+## 3. API inventory
 
-### A. Registration / Signup Flow (`/signup`)
-1. User provides `name`, `email`, `password`, and `role` (`customer` or `driver`).
-2. Frontend calls `authAPI.signup(...)` -> `POST /api/auth/signup`.
-3. Backend checks if the email already exists in MongoDB:
-   - If already registered: returns `400 Email already registered`.
-   - If valid: hashes password (via Mongoose pre-save hook) and creates User record.
-   - Responds with `201 Account created successfully. Please sign in.` without issuing an active session cookie.
-4. Frontend receives success, does **not** store an active session in `localStorage`, and redirects to `/signin` with flash state:
-   `navigate("/signin", { state: { message: "Account created successfully! Please sign in." } })`.
+| Area | Implemented routes |
+|---|---|
+| Health | GET / |
+| Auth | POST /api/auth/signup, /signin, /refresh, /signout; GET /me, /driver-only; PUT /me; POST /me/photo; DELETE /me/photo |
+| Driver | GET /api/driver/available-capacity (customer access); driver profile GET/PUT; vehicle GET/POST/PUT/DELETE, upload/document operations; request GET/status PATCH; capacity GET/POST/PUT/DELETE |
+| Shipments and parcels | POST /api/shipments; POST/GET /api/parcel |
+| Bookings | POST /api/booking; GET /my-bookings, /driver, /:id, /:id/tracking; PUT /:id/accept, /:id/reject, /:id/status; POST /:id/tracking; DELETE /:id |
+| Notifications | GET /api/notifications; PATCH /read-all and /:id/read |
 
-### B. Sign-In Flow (`/signin`)
-1. If redirected from signup, a green success banner informs the user to sign in.
-2. User submits `email` and `password`.
-3. Frontend calls `authAPI.signin(...)` -> `POST /api/auth/signin`.
-4. Backend handles authentication:
-   - **User does not exist in MongoDB:** Returns `404` status with `message: "User does not exist"`.
-   - **Password incorrect:** Returns `401` status with `message: "Invalid email or password"`.
-   - **Credentials valid:** Signs JWT token (7d expiration), sets `httpOnly` cookie, and returns `{ success: true, token, user }`.
-5. Frontend saves `token` and `role` to `localStorage` for UI state.
-6. Frontend navigates to role-specific dashboard:
-   - Customer: `/dashboard`
-   - Driver: `/driver-dashboard`
+Exact prefixes and authorization are defined in backend/src/routes. GET / is a text response, not a readiness probe. Parcel listing currently queries without restricting results to the requesting customer; treat this as an access-control limitation.
 
-### C. Protected Customer Routes (`CustomerLayout`)
-- [`CustomerLayout.jsx`](file:///c:/Users/shree/OneDrive/Desktop/RouteCargo/frontend/src/Layout/CustomerLayout.jsx) wraps all customer routes (`/dashboard`, `/Find`, `/Booking`, `/track`, `/address`, `/payment`, `/profile`, `/shipment`, `/parcel`).
-- If `localStorage.getItem("token")` is missing (unauthenticated user), `CustomerLayout` automatically redirects to `/signin`.
+## 4. Booking and capacity workflows
 
-### D. Logout Flow
-- Located exclusively as a **single button at the bottom-left of the sidebar** ([`Sidebar.jsx`](file:///c:/Users/shree/OneDrive/Desktop/RouteCargo/frontend/src/Layout/Sidebar.jsx)).
-- Styled with sleek dark black/gray tones (`text-gray-800 hover:text-black hover:bg-gray-200/80`), collapsing cleanly when the sidebar is collapsed.
-- When clicked:
-  1. Calls `authAPI.signout()` (`POST /api/auth/signout`), which clears the server-side `httpOnly` cookie.
-  2. Removes `token` and `role` from `localStorage`.
-  3. **Redirects the user directly to the Landing Page (`/`)**.
+Booking controller transitions found:
+- pending → accepted or rejected by assigned driver.
+- pending → cancelled by customer.
+- accepted → in_transit by assigned driver after pickup.
+- in_transit → delivered by assigned driver.
+- A completed schema/UI value exists, but no controller completion transition was found.
 
----
+Booking creation and changes/cancellation use MongoDB transactions. CapacityPost availability is decremented/reserved during booking operations and restored on rejection/cancellation where applicable. Delivery marks the linked capacity post completed. Capacity posts support declared statuses including draft, available, booking_requested, booked, in_transit, completed, expired, and cancelled, but only some transitions are implemented. A post remains available when positive capacity remains; zero capacity becomes booked. Editing is restricted when active booking constraints apply.
 
-## 3. Verified API Inventory
+## 5. Notifications and real-time events
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/` | Backend Health Check | No |
-| `POST` | `/api/auth/signup` | Register a new user (`customer` or `driver`) | No |
-| `POST` | `/api/auth/signin` | Authenticate user & issue JWT | No |
-| `GET` | `/api/auth/me` | Fetch currently logged in user info | Yes (JWT) |
-| `POST` | `/api/auth/signout` | Clear JWT session cookie | Yes (JWT) |
+Notifications are persisted in MongoDB. Socket.IO joins authenticated users to per-user rooms and emits notification:new, booking:status, and tracking:location events. The customer client filters tracking updates by booking. Socket authentication uses the active account session.
 
----
+## 6. Shipment tracking path
 
-## 4. Changelog of Work Done
+- The driver page watches browser geolocation while assigned bookings are in_transit, throttling publication to roughly 8 seconds and refreshing position after network reconnect.
+- POST /api/booking/:id/tracking validates coordinates and booking assignment/status, stores the latest TrackingLocation per booking with server timestamp, then emits to the customer's room.
+- GET /api/booking/:id/tracking is restricted to the booking customer or assigned driver. Socket updates reach the authorized customer room.
+- Customer tracking fetches the current latest position on page/selection/reconnection and updates the Leaflet marker from socket updates without a page reload.
+- Maps use Leaflet/React-Leaflet, OSM tiles by default, Photon geocoding and OSRM routing defaults in development. Configure VITE_OSM_TILE_URL, VITE_GEOCODING_BASE_URL, and VITE_ROUTING_BASE_URL for deployment.
+- Distance is projected onto the planned road route; ETA derives from planned route duration, not live traffic. Locations far off-route can suppress the progress estimate.
+- Browser GPS requires permission and a secure context for normal non-localhost device use. Physical GPS accuracy and a real driver-to-customer workflow have not been verified. No simulated location is evidence.
 
-### Session: Route Corrections, Authentication, Logout & Light Mode Consolidation
+## 7. Environment names
 
-1. **Signup to Signin Route Redirection:**
-   - **Problem:** New accounts were previously auto-logged in and redirected straight to `/dashboard`.
-   - **Fix:** Updated `frontend/src/Pages/Authentication/Signup.jsx` to navigate to `/signin` upon successful registration.
-   - **Update:** Updated `backend/src/controllers/authController.js` to return `201 Created` without issuing an auth cookie on signup.
-   - **Update:** Added green confirmation banner to `frontend/src/Pages/Authentication/signin.jsx` acknowledging account creation.
+Backend code and example use PORT, MONGO_URI, DEFAULT_PHONE_COUNTRY_CODE, JWT_SECRET, CLIENT_ORIGINS, CLIENT_URL fallback, REFRESH_TOKEN_DAYS, and COOKIE_SAME_SITE.
 
-2. **MongoDB Credential Verification & "User does not exist" Error:**
-   - **Problem:** Sign-in failed with generic error when an unregistered email was entered.
-   - **Fix:** In `backend/src/controllers/authController.js` (`exports.signin`), if the user is not found in MongoDB, return `404 { success: false, message: "User does not exist" }`.
-   - Frontend `signin.jsx` displays this exact error in a red alert banner.
+Frontend uses VITE_API_BASE, with legacy VITE_API_URL/VITE_BASE_URL fallbacks, plus VITE_OSM_TILE_URL, VITE_GEOCODING_BASE_URL, and VITE_ROUTING_BASE_URL.
 
-3. **Customer Route Protection:**
-   - **Fix:** Added authentication check in `frontend/src/Layout/CustomerLayout.jsx`. Unauthenticated users attempting to visit `/dashboard` or other customer routes are redirected to `/signin`.
+## 8. Verification notes and known gaps
 
-4. **Consolidated Logout Button & Landing Page Redirect:**
-   - **Fix:** Removed the two previous logout buttons from `DashboardNavbar.jsx` and `dashboard.jsx`.
-   - **Fix:** Added a single, clean Logout button to the **bottom-left of the sidebar** in `Sidebar.jsx`, styled in black/gray.
-   - **Fix:** Updated logout navigation to redirect directly to the **Landing Page (`/`)**.
+During the 2026-11-22 bounded database check, the configured MongoDB Atlas SRV DNS lookup did not finish in the allotted time, and the connection attempt timed out. Database records/counts and persisted real-workflow behavior could not be inspected. This does not establish that credentials are invalid.
 
-5. **Complete Dark Theme Removal:**
-   - **Fix:** Removed theme toggle button and state from `DashboardNavbar.jsx`.
-   - **Fix:** Removed `@custom-variant dark` and all `.dark` CSS overrides from `frontend/src/index.css`.
-   - **Fix:** Cleaned up all `dark:` classes across `CustomerLayout.jsx`, `DashboardNavbar.jsx`, `Sidebar.jsx`, `dashboard.jsx`, and `LandingPage.jsx`.
-   - Application consistently renders in clean, high-performance light mode everywhere.
+The source contains driver capacity editing support; a real edit-save-refresh workflow was not manually verified during this documentation audit. Automated test results are recorded separately in the current task report, not inferred from feature presence.
+
+Other gaps: no admin portal, no payment backend, saved addresses remain client-side, parcel listing lacks owner filtering, no production security/load review, and external map services need deployment configuration. The API root does not report database readiness.
+
+## 9. Related documentation
+
+- docs/PRD.md — product scope and requirements.
+- docs/architecture.md — architecture and data flow.
+- docs/SystemDesign.md — entities, APIs, and state transitions.
+- README.md — setup and run instructions.

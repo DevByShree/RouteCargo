@@ -5,7 +5,7 @@ const c = require('../controllers/driverController');
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // Public capacity listings are mounted on the driver router so customers can discover trips.
-router.get('/available-capacity', wrap(c.listPublicCapacity));
+router.get('/available-capacity', authenticate, authorize('customer'), wrap(c.listPublicCapacity));
 
 router.use(authenticate, authorize('driver'));
 
@@ -20,6 +20,7 @@ router.post('/vehicles/:id/uploads', upload.fields([
     { name: 'photos', maxCount: 8 },
     { name: 'documents', maxCount: 8 }
 ]), wrap(c.uploadFiles));
+router.get('/vehicles/:id/documents/:fileName', wrap(c.getVehicleDocument));
 router.delete('/vehicles/:id/files/:fileName', wrap(c.removeVehicleFile));
 
 router.get('/requests', wrap(c.listRequests));

@@ -26,10 +26,15 @@ const createShipment = async (req, res) => {
                 message: "User not found",
             });
         }
+        const requestedDate = req.body.pickupDate ? new Date(req.body.pickupDate) : new Date();
+        if (Number.isNaN(requestedDate.getTime())) return res.status(400).json({ success: false, message: "Pickup date is invalid" });
+        requestedDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(requestedDate); nextDay.setDate(nextDay.getDate() + 1);
         const existingShipment = await Shipment.findOne({
             userId: user._id,
             pickup: pickup.trim(),
             destination: destination.trim(),
+            pickupDate: { $gte: requestedDate, $lt: nextDay },
         });
 
         if (existingShipment) {
@@ -57,6 +62,7 @@ const createShipment = async (req, res) => {
             userId: user._id,
             pickup: pickup.trim(),
             destination: destination.trim(),
+            pickupDate: requestedDate,
         });
 
         return res.status(201).json({

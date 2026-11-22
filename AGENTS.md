@@ -1,104 +1,77 @@
 # AGENTS.md — RouteCargo Project Instructions
 
-## 1. Project Purpose and Scope
+## 1. Project purpose and scope
 
-RouteCargo is a transport and logistics marketplace that connects users who need goods transported with drivers and transportation providers who can fulfil those shipments.
+RouteCargo connects customers who need goods transported with drivers and transport providers. Product scope includes customer/driver accounts, vehicles, shipment and parcel requests, driver capacity publication, bookings, notifications, and shipment tracking. These are implemented to varying degrees; consult the source and the docs before treating a capability as verified.
 
-The platform may include:
-- User registration, login, authentication, and role-based access.
-- Driver registration, KYC, and vehicle management.
-- Truck/vehicle management.
-- Shipment creation with pickup/delivery locations.
-- Goods info, truck requirements, pricing.
-- Driver requests/quotations; owner accept/reject.
-- Booking confirmation and assignment.
-- Shipment status updates and delivery tracking.
-- Payment records and transaction status.
-- User/driver/admin dashboards.
+There is no admin portal or payment backend in the inspected implementation.
 
-Treat these as product requirements, not proof of implementation.
+## 2. Verified technology stack
 
-## 2. Verified Technology Stack
+- Frontend: React 19, React Router 7, Tailwind CSS 4, Vite 8, JavaScript/JSX, Axios, Leaflet, React-Leaflet, Socket.IO client, lucide-react, react-icons.
+- Backend: Node.js, Express 5, Mongoose 9, MongoDB, dotenv, cors, jsonwebtoken, bcryptjs, cookie-parser, multer, Socket.IO; nodemon for development.
+- Database: MongoDB via Mongoose. Models exist under backend/src/models.
+- Separate route/service domain layer: routes, controllers, middleware, models are present; a separate services layer was not found.
 
-- **Frontend:** React 19, React Router v7, Tailwind CSS v4, Vite 8, ESLint 10, JavaScript/JSX, `lucide-react`, `react-icons`, `@types/react` (dev only).
-- **Backend:** Node.js, Express 5, Mongoose 9 (MongoDB), `dotenv`, `cors`, `nodemon` (dev).
-- **Database:** MongoDB via Mongoose ODM (connection via `MONGO_URI`; no models defined yet).
+## 3. Repository structure
 
-## 3. Repository Structure and Important File Locations
+- backend/: Express entry point, src/config, controllers, middleware, models, routes, realtime, utils, scripts, package manifests and .env.example.
+- frontend/: React/Vite app, src/API, Layout, Pages, map components/services, package manifests and .env.example.
+- docs/: PRD.md, architecture.md, SystemDesign.md.
+- README.md: setup and project overview.
+- context.md: current implementation notes.
+- requirement.txt: package-name/version inventory only; npm manifests and lockfiles are authoritative.
 
-- `backend/` — `server.js`, `src/{config,controllers,middleware,models,routes}/` (mostly empty), `package.json`, `package-lock.json`, `.env` (`PORT`, `MONGO_URI`).
-- `frontend/` — `src/{App.jsx, main.jsx, index.css, Layout/, Pages/, API/}`, `vite.config.js`, `eslint.config.js`, `package.json`, `package-lock.json`, `README.md`.
-- `docs/` — `architecture.md`, `PRD.md`, `SystemDesign.md`.
-- `requirement.txt` — root-level npm package list for frontend + backend.
+## 4. System implementation snapshot
 
-## 4. Current System Architecture
+The frontend communicates with the Express API using credentialed Axios requests and uses cookie-backed JWT sessions with refresh. REST endpoints cover authentication, driver profiles/vehicles/capacity, shipments, parcels, bookings/tracking, and notifications. Socket.IO authenticates user sessions and delivers notifications, booking status, and tracking-location events.
 
-- React SPA ↔ Express backend ↔ MongoDB.
-- Frontend currently has **no API integration** (no fetch/axios; `src/API/` empty).
-- Backend currently exposes only `GET /` and attempts MongoDB connection; scaffolding folders are empty.
-- Integration phase pending.
+Customer and driver roles are implemented. Admin, payment processing, and synchronized saved-address features are not implemented. Tracking code exists, but real-device and production end-to-end behavior has not been verified.
 
-## 5. Frontend and Backend Architecture
+## 5. Data and business state
 
-- Frontend: layout routes under `CustomerLayout`; local state only; auth token read from `localStorage.token` (never written yet).
-- Backend: planned layered architecture (routes → controllers → services → models, middleware, auth).
+Mongoose models include User, AuthSession, DriverProfile, Vehicle, CapacityPost, CargoRequest, Shipment, Parcel, Booking, TrackingLocation, Notification, and Counter. Booking status changes implemented in controller include pending to accepted/rejected, pending to cancelled, accepted to in_transit, and in_transit to delivered. A completed schema/UI label exists, but no controller completion transition was found.
 
-## 6. Database Entities and Relationships
+Capacity publication and booking update CapacityPost state/capacity; not every declared status has a corresponding transition. See docs/SystemDesign.md for state details and limitations.
 
-- Planned entities: User, Driver, Vehicle, Trip, Shipment, Booking, Payment, Tracking.
-- Relationships: User 1—N Driver; Driver 1—N Trip; Trip → Shipment/Booking; Shipment → Tracking; Booking → Payment.
+## 6. Security and operational notes
 
-## 7. Verified API Inventory
+Authentication uses bcrypt password hashes, signed JWT access tokens, rotating refresh sessions, role checks, and ownership checks on relevant operations. Cookie/CORS settings are environment-configured. Parcel listing currently lacks customer ownership scoping. Never expose secrets. Booking operations use MongoDB transactions and require a transaction-capable deployment. The root GET / response is not a database readiness check.
 
-- Verified: `GET /` — health check.
-- Proposed: full REST API (auth, drivers, trips, shipments, bookings, payments, tracking).
+## 7. Development commands
 
-## 8. Business Workflows
+Run each project from its own directory:
 
-- Documented at product level; implementation pending.
+- Backend: npm run dev, npm start, npm test.
+- Frontend: npm run dev, npm test, npm run lint, npm run build, npm run preview.
 
-## 9. Implementation Status
+Environment variable names and setup are documented in README.md and each .env.example. Never copy real credentials into documentation.
 
-- Frontend pages implemented (local-state UI) / not implemented (Driver, Admin).
-- Backend minimal / scaffolding empty.
+## 8. Documentation sources
 
-## 10. Security and Data Integrity
+Keep docs/PRD.md, docs/architecture.md, docs/SystemDesign.md, README.md and context.md aligned with source. Separate implemented-in-code from tested/verified behavior. Do not claim physical GPS, live database behavior, or production readiness without evidence.
 
-- No auth/validation yet; `.env` gitignored; never expose secrets or run destructive DB ops without permission.
-
-## 11. Development and Testing Instructions
-
-- Backend: `cd backend && npm run dev`.
-- Frontend: `npm run dev`, `npm run build`, `npm run lint`.
-
-## 12. Known Issues and Unresolved Questions
-
-- No frontend↔backend integration; empty backend scaffolding; driver portal pending; backend recently stripped.
-
-## 13. Future AI Behavior and Explicit Permission Requirements
+## 9. Future AI behavior and explicit permission requirements
 
 Future AI assistants must:
 
-1. Read `AGENTS.md` and relevant docs before starting work.
+1. Read AGENTS.md and relevant docs before starting work.
 2. Inspect existing implementations before suggesting new code.
 3. Reuse existing components, models, APIs, and utilities.
 4. Preserve the current architecture and conventions.
-5. Never assume a feature, API, or DB field exists without verification.
+5. Never assume a feature, API, or database field exists without verification.
 6. Explain the proposed change and list exact affected files.
 7. Request explicit approval before editing any file.
 8. Modify only approved files/functionality.
 9. Never perform unrelated refactoring or automatic fixes.
 10. Ask again if approved scope expands.
-11. Never expose secrets or run destructive DB operations without permission.
+11. Never expose secrets or run destructive database operations without permission.
 12. Report all changes and actual test results after approved implementation.
 13. When asked to explain/review, do not modify.
 14. State uncertainty rather than inventing answers.
 
 A request to inspect, debug, explain, or plan does not grant permission to edit files.
 
-## 14. Project State Summary for Future Handoffs
+## 10. Project state summary
 
-- **Stack:** React 19 SPA + Express 5 + Mongoose/MongoDB.
-- **Current state:** Frontend UI scaffolded; backend minimal; integration not started.
-- **Docs:** `docs/architecture.md`, `docs/PRD.md`, `docs/SystemDesign.md`.
-- **Next likely work:** backend API scaffold + frontend integration.
+The project has an integrated React frontend and Express/MongoDB backend. Main implemented flows include account/session management, customer shipments/parcels, driver vehicles/capacity, booking status handling, notifications, and code for live tracking. MongoDB connectivity, physical GPS end-to-end behavior, and production readiness remain unverified. See context.md for the latest audit caveats.

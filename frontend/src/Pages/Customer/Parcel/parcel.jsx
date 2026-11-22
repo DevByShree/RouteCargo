@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createParcel, getShipmentId, uploadProductImages } from "../../../API/parcelapi";
+import { getRememberedShipment } from "../../../API/Shipmentapi";
+import { useFormDraft } from "../../../Authentication/useFormDraft";
+import { useAuth } from "../../../Authentication/useAuth";
+import { formDraftKey, writeDraft } from "../../../Authentication/formDraftStorage.js";
+import { clearShipmentDraftImages, loadShipmentDraftImage, saveShipmentDraftImage } from "../../../Authentication/shipmentImageDraftStorage.js";
 import {
   Package, Box, ChevronDown, Minus, Plus, Pencil, Trash2, ClipboardList,
   ArrowLeft, ArrowRight, Image as ImageIcon, Camera, Upload, X, Tag,
@@ -8,10 +13,42 @@ import {
 } from "lucide-react";
 
 // Pages (must match the paths in your router)
-const FIND_ROUTE = "/user/find";
+const FIND_ROUTE = "/user/Find";
 const SIGNIN_ROUTE = "/signin";
 
 const PARCEL_TYPES = ["Electronics", "Furniture", "Machinery", "Textiles", "Food & Perishables", "Documents", "Other"];
+const EMPTY_PARCEL_DRAFT = { name: "", type: "Electronics", count: 1, weightKg: "", desc: "", imageRefs: [], parcels: [] };
+const pickImages = images => (images || []).map(image => ({ id: image.id, name: image.name, size: image.size, mimeType: image.mimeType || image.file?.type || image.type || "" }));
+const validImages = images => Array.isArray(images) && images.length <= 6 && images.every(image => image
+  && typeof image.id === "string" && typeof image.name === "string"
+  && Number.isFinite(image.size) && image.size >= 0
+  && typeof image.mimeType === "string");
+const pickParcelDraft = value => ({
+  ...value,
+  imageRefs: pickImages(value.imageRefs),
+  parcels: value.parcels.map(({ id, name, type, qty, weightKg, desc, images, savedParcelId }) => ({
+    id, name, type, qty, weightKg, desc, images: pickImages(images), ...(savedParcelId ? { savedParcelId } : {}),
+  })),
+});
+const validParcelDraft = value => value && typeof value === "object"
+  && typeof value.name === "string" && PARCEL_TYPES.includes(value.type)
+  && Number.isSafeInteger(value.count) && value.count > 0
+  && typeof value.weightKg === "string" && typeof value.desc === "string"
+  && validImages(value.imageRefs || [])
+  && Array.isArray(value.parcels) && value.parcels.every(parcel => parcel
+    && typeof parcel.id === "string" && typeof parcel.name === "string"
+    && PARCEL_TYPES.includes(parcel.type) && Number.isSafeInteger(parcel.qty) && parcel.qty > 0
+    && Number.isFinite(parcel.weightKg) && parcel.weightKg > 0 && typeof parcel.desc === "string"
+    && validImages(parcel.images || []) && (parcel.savedParcelId === undefined || typeof parcel.savedParcelId === "string"));
+const restoreParcelDraft = (saved, initial) => ({
+  ...initial,
+  ...saved,
+  imageRefs: (saved.imageRefs || []).map(image => ({ ...image, file: null, url: "" })),
+  parcels: saved.parcels.map(parcel => ({
+    ...parcel,
+    images: (parcel.images || []).map(image => ({ ...image, file: null, url: "" })),
+  })),
+});
 
 // Each parcel type gets its own icon (used in the dropdown and in the summary)
 const TYPE_ICONS = {
@@ -344,22 +381,76 @@ function ImageGallery({ images }) {
 export default function ParcelDetails() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { pickup, destination, shipment, pickupDate } = location.state || {};
+  const rememberedShipment = getRememberedShipment(user?.id);
+  const rememberedShipmentId = Number(sessionStorage.getItem("currentShipmentId")) || rememberedShipment?.shipmentId || null;
+  const shipmentId = getShipmentId(shipment) ?? rememberedShipmentId;
+  const workflowPickup = pickup || rememberedShipment?.pickup || shipment?.pickup || "";
+  const workflowDestination = destination || rememberedShipment?.destination || shipment?.destination || "";
+  const workflowPickupDate = pickupDate || rememberedShipment?.pickupDate || shipment?.pickupDate || "";
+  const parcelFormId = `parcel-details-${shipmentId || "pending"}`;
+  const draftStorageKey = formDraftKey({ role: user?.role, userId: user?.id, formId: parcelFormId });
   const [submitting, setSubmitting] = useState(false);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("Electronics");
-  const [count, setCount] = useState(1);
-  const [images, setImages] = useState([]); // [{ id, file, url, name, size }]
-  const [desc, setDesc] = useState("");
-  const [parcels, setParcels] = useState([]);
+  const [parcelDraft, setParcelDraft, clearParcelDraft] = useFormDraft({
+    formId: parcelFormId,
+    initialValue: EMPTY_PARCEL_DRAFT,
+    pick: pickParcelDraft,
+    validate: validParcelDraft,
+    restore: restoreParcelDraft,
+  });
+  const { name, type, count, weightKg, desc, parcels } = parcelDraft;
+  const updateDraft = (key, value) => setParcelDraft(current => ({ ...current, [key]: value }));
+  const setName = value => updateDraft("name", value);
+  const setType = value => updateDraft("type", value);
+  const setCount = value => setParcelDraft(current => ({ ...current, count: typeof value === "function" ? value(current.count) : value }));
+  const setWeightKg = value => updateDraft("weightKg", value);
+  const setDesc = value => updateDraft("desc", value);
+  const setParcels = update => setParcelDraft(current => ({ ...current, parcels: typeof update === "function" ? update(current.parcels) : update }));
+  const [images, setImages] = useState(() => (parcelDraft.imageRefs || []).map(image => ({ ...image, file: null, url: "" })));
   const [formError, setFormError] = useState("");
   const [pageError, setPageError] = useState("");
   const [needsSignIn, setNeedsSignIn] = useState(false);
 
-  // Parcels already saved on the server (so a retry never creates duplicates)
-  const savedRef = useRef(new Map()); // parcelLocalId -> saved parcel from API
+  const updateImages = nextImages => {
+    setImages(nextImages);
+    updateDraft("imageRefs", pickImages(nextImages));
+    Promise.all(nextImages.map(image => saveShipmentDraftImage(user?.id, shipmentId, image)))
+      .catch(error => setPageError(error.message || "Could not save image draft. Keep this tab open and try again."));
+  };
 
-  const { pickup, destination, shipment } = location.state || {};
-  const shipmentId = getShipmentId(shipment);
+  useEffect(() => {
+    if (!user?.id || !shipmentId) return undefined;
+    let active = true;
+    const restoreImages = async () => {
+      const allImages = [
+        ...(parcelDraft.imageRefs || []),
+        ...(parcelDraft.parcels || []).flatMap(parcel => parcel.images || []),
+      ];
+      const uniqueImages = [...new Map(allImages.map(image => [image.id, image])).values()];
+      const loaded = await Promise.all(uniqueImages.map(image => loadShipmentDraftImage(user.id, shipmentId, image).catch(() => null)));
+      if (!active) {
+        loaded.filter(Boolean).forEach(image => URL.revokeObjectURL(image.url));
+        return;
+      }
+      const byId = new Map(loaded.filter(Boolean).map(image => [image.id, image]));
+      setImages((parcelDraft.imageRefs || []).map(image => byId.get(image.id)).filter(Boolean));
+      setParcelDraft(current => ({
+        ...current,
+        parcels: current.parcels.map(parcel => ({ ...parcel, images: (parcel.images || []).map(image => byId.get(image.id)).filter(Boolean) })),
+      }));
+      if (loaded.some(image => !image) && uniqueImages.length) {
+        setPageError("One or more saved product photos could not be restored. You can select them again.");
+      }
+    };
+    restoreImages();
+    return () => { active = false; };
+  // Draft contents are read once for this authenticated shipment when the page mounts.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, shipmentId]);
+
+  // Parcels already saved on the server (so a retry never creates duplicates)
+  const savedRef = useRef(new Map((parcels || []).filter(parcel => parcel.savedParcelId).map(parcel => [parcel.id, { _id: parcel.savedParcelId }]))); // parcelLocalId -> saved parcel from API
 
   const totalPackages = parcels.reduce((sum, p) => sum + p.qty, 0);
   const TypeIcon = TYPE_ICONS[type] || Box;
@@ -379,8 +470,9 @@ export default function ParcelDetails() {
     setPageError("");
     setNeedsSignIn(false);
     try {
+      await Promise.all(parcels.flatMap(parcel => (parcel.images || []).map(image => saveShipmentDraftImage(user?.id, shipmentId, image))));
       for (const p of parcels) {
-        if (savedRef.current.has(p.id)) continue; // already saved
+        if (savedRef.current.has(p.id) || p.savedParcelId) continue; // already saved, including across page reloads
 
         const productImages = await uploadProductImages(p.images);
         const saved = await createParcel({
@@ -388,16 +480,28 @@ export default function ParcelDetails() {
           productName: p.name,
           parcelType: p.type,
           numberOfPackages: p.qty,
+          weightKg: p.weightKg,
           productImages,
           description: p.desc,
         });
+        const savedId = saved._id || saved.id;
+        if (!savedId) throw new Error(`The saved record for ${p.name} did not include an ID. Please refresh before retrying.`);
         savedRef.current.set(p.id, saved);
+        const updatedParcels = parcels.map(parcel => ({
+          ...parcel,
+          ...(savedRef.current.has(parcel.id) ? { savedParcelId: String(savedRef.current.get(parcel.id)._id || savedRef.current.get(parcel.id).id) } : {}),
+        }));
+        setParcelDraft(current => ({ ...current, parcels: current.parcels.map(parcel => parcel.id === p.id
+          ? { ...parcel, savedParcelId: String(savedId) }
+          : parcel) }));
+        if (draftStorageKey) writeDraft(draftStorageKey, pickParcelDraft({ ...parcelDraft, parcels: updatedParcels }));
       }
 
       navigate(FIND_ROUTE, {
         state: {
-          pickup,
-          destination,
+          pickup: workflowPickup,
+          destination: workflowDestination,
+          pickupDate: workflowPickupDate,
           shipment,
           shipmentId,
           parcels: parcels.map((p) => ({ ...p, saved: savedRef.current.get(p.id) })),
@@ -416,13 +520,19 @@ export default function ParcelDetails() {
       setFormError("Enter a product name to add this parcel.");
       return;
     }
+    if (!Number.isFinite(Number(weightKg)) || Number(weightKg) <= 0) {
+      setFormError("Enter the parcel weight in kilograms.");
+      return;
+    }
     setParcels((list) => [
       ...list,
-      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: name.trim(), type, qty: count, desc, images },
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: name.trim(), type, qty: count, weightKg: Number(weightKg), desc, images },
     ]);
     setName("");
     setCount(1);
+    setWeightKg("");
     setImages([]);
+    updateDraft("imageRefs", []);
     setDesc("");
     setFormError("");
     setPageError("");
@@ -431,12 +541,12 @@ export default function ParcelDetails() {
   const editParcel = (id) => {
     const p = parcels.find((x) => x.id === id);
     if (!p) return;
-    images.forEach((i) => URL.revokeObjectURL(i.url));
     setName(p.name);
     setType(p.type);
     setCount(p.qty);
+    setWeightKg(String(p.weightKg || ""));
     setDesc(p.desc);
-    setImages(p.images);
+    updateImages(p.images || []);
     setParcels((list) => list.filter((x) => x.id !== id));
     setFormError("");
   };
@@ -445,6 +555,16 @@ export default function ParcelDetails() {
     const p = parcels.find((x) => x.id === id);
     p?.images.forEach((i) => URL.revokeObjectURL(i.url));
     setParcels((list) => list.filter((x) => x.id !== id));
+  };
+
+  const clearParcelForm = () => {
+    imagesRef.current.forEach(image => URL.revokeObjectURL(image.url));
+    parcelsRef.current.forEach(parcel => parcel.images.forEach(image => URL.revokeObjectURL(image.url)));
+    setImages([]);
+    clearParcelDraft();
+    clearShipmentDraftImages(user?.id, shipmentId).catch(error => setPageError(error.message || "Could not clear saved product photos."));
+    setFormError("");
+    setPageError("");
   };
 
   const imagesRef = useRef(images);
@@ -542,9 +662,17 @@ export default function ParcelDetails() {
               </Field>
             </div>
 
+            <div className="mt-5 max-w-sm">
+              <Field label="Total Parcel Weight (kg)" required>
+                <div className={inputShell}>
+                  <input type="number" min="0.1" step="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} placeholder="e.g. 250" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm outline-none" />
+                </div>
+              </Field>
+            </div>
+
             <div className="mt-7">
-              <Field label="Product Images (Optional)">
-                <ProductImagesField images={images} onChange={setImages} />
+          <Field label="Product Images (Optional)">
+                <ProductImagesField images={images} onChange={updateImages} />
               </Field>
             </div>
 
@@ -584,12 +712,12 @@ export default function ParcelDetails() {
             <SectionHeader title="Shipment Summary" subtitle="Quick overview of your shipment details." />
 
             {/* Route */}
-            {(pickup || destination) && (
+            {(workflowPickup || workflowDestination) && (
               <div className="mt-6 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
                 <MapPin className="h-4 w-4 shrink-0 text-blue-600" />
-                <span className="min-w-0 truncate font-medium text-slate-800" title={String(pickup || "")}>{pickup || "—"}</span>
+                <span className="min-w-0 truncate font-medium text-slate-800" title={String(workflowPickup)}>{workflowPickup || "—"}</span>
                 <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-                <span className="min-w-0 truncate font-medium text-slate-800" title={String(destination || "")}>{destination || "—"}</span>
+                <span className="min-w-0 truncate font-medium text-slate-800" title={String(workflowDestination)}>{workflowDestination || "—"}</span>
               </div>
             )}
 
@@ -688,6 +816,12 @@ export default function ParcelDetails() {
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={clearParcelForm}
+              disabled={submitting}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >Clear form</button>
             <button
               type="button"
               onClick={() => navigate(-1)}

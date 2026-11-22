@@ -1,28 +1,102 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CalendarDays, Package, Phone, Building2, CheckCircle2, XCircle, Truck, IndianRupee, Filter, Pencil, Save, X } from "lucide-react";
 import { driverApi, normalizeCapacity, normalizeRequest } from "../../API/driverApi";
+import { useFormDraft } from "../../Authentication/useFormDraft";
+const RouteMap = lazy(() => import("../components/RouteMap"));
+const NO_ROUTE_STOPS = [];
 const statusClasses = { Pending: "bg-amber-50 text-amber-700", Accepted: "bg-emerald-50 text-emerald-700", Rejected: "bg-rose-50 text-rose-700", "In Transit": "bg-blue-50 text-blue-700", Completed: "bg-slate-100 text-slate-700" };
+const capacityToKg = (value, unit) => /^(ton|tons)$/i.test(String(unit || "")) ? Number(value) * 1000 : /^(kg|kgs)$/i.test(String(unit || "")) ? Number(value) : 0;
+const pickAvailabilityEdit = value => value ? ({ id: value.id, vehicleId: value.vehicleId, vehicleName: value.vehicleName, vehicleNumber: value.vehicleNumber, availableCapacity: value.availableCapacity, date: value.date, from: value.from, to: value.to, loadTypes: value.loadTypes, price: value.price, priceType: value.priceType, companyName: value.companyName, contactNumber: value.contactNumber, notes: value.notes }) : null;
+const validAvailabilityEdit = value => value === null || (value && typeof value === "object"
+  && typeof value.id === "string" && value.id.length <= 100 && typeof value.availableCapacity === "string"
+  && typeof value.vehicleId === "string" && value.vehicleId.length <= 100
+  && typeof value.date === "string" && typeof value.from === "string" && typeof value.to === "string"
+  && value.from.length <= 160 && value.to.length <= 160
+  && Array.isArray(value.loadTypes) && value.loadTypes.every(item => ["Small goods", "Industrial goods", "Fragile goods", "General cargo"].includes(item))
+  && (value.price == null || (typeof value.price === "number" && Number.isFinite(value.price) && value.price >= 0))
+  && (value.priceType == null || ["fixed", "negotiable"].includes(value.priceType)));
+const restoreAvailabilityEdit = value => value;
 
 export default function MyRequests() {
+  const [searchParams] = useSearchParams();
+  const notificationBookingId = searchParams.get("bookingId");
   const [requests, setRequests] = useState([]);
   const [capacityPosts, setCapacityPosts] = useState([]);
-  const [editingPost, setEditingPost] = useState(null);
+  const [vehicles, setVehicles] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [editingPost, setEditingPost, clearEditingDraft] = useFormDraft({ formId: "availability-edit", initialValue: null, pick: pickAvailabilityEdit, validate: validAvailabilityEdit, restore: restoreAvailabilityEdit });
   const [savingPost, setSavingPost] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
+  const [gpsState, setGpsState] = useState({ tripIds: "", message: "" });
+  const lastGpsSentAt = useRef(0);
   useEffect(() => {
-    Promise.all([driverApi.listRequests(), driverApi.listCapacity()])
-      .then(([nextRequests, nextPosts]) => { setRequests(nextRequests); setCapacityPosts(nextPosts); })
+    Promise.all([driverApi.listRequests(), driverApi.listCapacity(), driverApi.listBookings(), driverApi.listVehicles()])
+      .then(([nextRequests, nextPosts, nextBookings, nextVehicles]) => { setRequests(nextRequests); setCapacityPosts(nextPosts); setBookings(nextBookings); setVehicles(nextVehicles); })
       .catch(e => setError(e.message));
   }, []);
+  const activeTripIds = bookings.filter(booking => booking.status === "in_transit").map(booking => booking._id).join(",");
+  const gpsError = gpsState.tripIds === activeTripIds ? gpsState.message : "";
+  useEffect(() => {
+    if (!activeTripIds || !navigator.geolocation) return undefined;
+    const tripIds = activeTripIds.split(",");
+    const options = { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 };
+    const sendPosition = async (position, force = false) => {
+      const now = Date.now();
+      if (!force && now - lastGpsSentAt.current < 8000) return;
+      lastGpsSentAt.current = now;
+      const gps = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      };
+      const results = await Promise.allSettled(tripIds.map(id => driverApi.updateTrackingLocation(id, gps)));
+      if (results.some(result => result.status === "rejected")) {
+        setGpsState({ tripIds: activeTripIds, message: "Live GPS could not be sent. Check your connection and location permission." });
+      } else setGpsState({ tripIds: activeTripIds, message: "" });
+    };
+    const handleGpsError = error => {
+      const message = error.code === error.PERMISSION_DENIED
+        ? "Location permission is off. Allow location access in your browser to share live GPS."
+        : error.code === error.POSITION_UNAVAILABLE
+          ? "Your device cannot determine its current location. Live GPS is unavailable."
+          : "GPS is taking too long to respond. Live location will resume when a position is available.";
+      setGpsState({ tripIds: activeTripIds, message });
+    };
+    const watchId = navigator.geolocation.watchPosition(position => sendPosition(position), handleGpsError, options);
+    const retryWithFreshPosition = () => navigator.geolocation.getCurrentPosition(position => sendPosition(position, true), handleGpsError, options);
+    window.addEventListener("online", retryWithFreshPosition);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      window.removeEventListener("online", retryWithFreshPosition);
+    };
+  }, [activeTripIds]);
+  useEffect(() => {
+    if (!notificationBookingId || !bookings.length) return undefined;
+    const timer = window.setTimeout(() => document.getElementById(`booking-${notificationBookingId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+    return () => window.clearTimeout(timer);
+  }, [notificationBookingId, bookings]);
+  const updateBooking = async (booking, action, status) => {
+    try {
+      const result = action === "accept" ? await driverApi.acceptBooking(booking._id)
+        : action === "reject" ? await driverApi.rejectBooking(booking._id)
+          : await driverApi.updateBookingStatus(booking._id, status);
+      setBookings(rows => rows.map(row => row._id === booking._id ? { ...row, ...(result || {}), status: status || (action === "accept" ? "accepted" : "rejected") } : row));
+    } catch (requestError) { setError(requestError.message || "Could not update this booking."); }
+  };
   const counts = useMemo(() => ({ All: requests.length, Pending: requests.filter(r=>r.status==="Pending").length, Accepted: requests.filter(r=>r.status==="Accepted").length, Rejected: requests.filter(r=>r.status==="Rejected").length, "In Transit": requests.filter(r=>r.status==="In Transit").length, Completed: requests.filter(r=>r.status==="Completed").length }), [requests]);
   const filtered = requests.filter(r => (filter === "All" || r.status === filter) && `${r.id} ${r.customerName} ${r.from} ${r.to} ${r.loadType}`.toLowerCase().includes(search.toLowerCase()));
   const decide = async (id, status) => { try { const updated = normalizeRequest(await driverApi.updateRequestStatus(id, status)); setRequests(rs=>rs.map(r=>r.id===id?updated:r)); setNotice(`Request ${id} ${status.toLowerCase()}.`); setTimeout(()=>setNotice(""),2500); } catch (e) { setError(e.message); } };
   const editPost = post => setEditingPost({
     ...post,
-    availableCapacity: post.availableCapacity ?? "",
+    vehicleId: String(post.vehicleId?._id || post.truckId || post.vehicleId || ""),
+    vehicleName: post.vehicleName || post.truckName || post.vehicleId?.name || "",
+    vehicleNumber: post.vehicleNumber || post.truckNumber || post.vehicleId?.number || "",
+    availableCapacity: String(post.availableCapacityKg ?? capacityToKg(post.availableCapacity, post.capacityUnit)),
+    capacityUnit: "kg",
     date: post.date || "",
     from: post.from || "",
     to: post.to || "",
@@ -32,6 +106,7 @@ export default function MyRequests() {
     notes: post.notes || "",
   });
   const updatePost = (key, value) => setEditingPost(post => ({ ...post, [key]: value }));
+  const editingVehicle = editingPost ? vehicles.find(vehicle => vehicle.id === editingPost.vehicleId) : null;
   const togglePostLoad = value => setEditingPost(post => ({
     ...post,
     loadTypes: post.loadTypes.includes(value) ? post.loadTypes.filter(item => item !== value) : [...post.loadTypes, value],
@@ -39,22 +114,30 @@ export default function MyRequests() {
   const savePost = async event => {
     event.preventDefault();
     if (!editingPost) return;
+    if (!editingPost.vehicleId) { setError("Select a vehicle for this availability."); return; }
+    if (!Number.isFinite(Number(editingPost.availableCapacity)) || Number(editingPost.availableCapacity) <= 0) { setError("Enter an available capacity greater than zero."); return; }
+    const selectedVehicle = vehicles.find(vehicle => vehicle.id === editingPost.vehicleId);
+    if (!selectedVehicle) { setError("The selected vehicle is no longer in your vehicle list."); return; }
+    if (Number(editingPost.availableCapacity) > capacityToKg(selectedVehicle.capacity, selectedVehicle.capacityUnit)) { setError("Available capacity cannot exceed the selected vehicle capacity."); return; }
     if (!editingPost.loadTypes.length) { setError("Select at least one cargo type."); return; }
     setSavingPost(true);
     setError("");
     try {
       const updated = normalizeCapacity(await driverApi.updateCapacity(editingPost.id, {
-        availableCapacity: Number(editingPost.availableCapacity),
+        vehicleId: editingPost.vehicleId,
+        availableCapacityKg: Number(editingPost.availableCapacity),
         date: editingPost.date,
         from: editingPost.from.trim(),
         to: editingPost.to.trim(),
         loadTypes: editingPost.loadTypes,
-        companyName: editingPost.companyName.trim(),
-        contactNumber: editingPost.contactNumber.trim(),
-        notes: editingPost.notes.trim(),
+        price: editingPost.price,
+        priceType: editingPost.priceType,
+        companyName: editingPost.companyName?.trim(),
+        contactNumber: editingPost.contactNumber?.trim(),
+        notes: editingPost.notes?.trim(),
       }));
-      setCapacityPosts(posts => posts.map(post => post.id === updated.id ? { ...post, ...updated, totalCapacity: post.totalCapacity, truckName: post.truckName, truckNumber: post.truckNumber, vehicleType: post.vehicleType } : post));
-      setEditingPost(null);
+      setCapacityPosts(posts => posts.map(post => post.id === updated.id ? { ...post, ...updated, vehicleId: selectedVehicle.id, truckId: selectedVehicle.id, truckName: selectedVehicle.name, truckNumber: selectedVehicle.number, vehicleType: selectedVehicle.type, totalCapacity: selectedVehicle.capacity, capacityUnit: "kg" } : post));
+      clearEditingDraft();
       setNotice("Published availability updated.");
       setTimeout(() => setNotice(""), 2500);
     } catch (e) { setError(e.message); }
@@ -65,6 +148,23 @@ export default function MyRequests() {
     {notice && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
     {error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="mb-4"><h2 className="text-lg font-bold text-slate-900">Shipment booking requests</h2><p className="mt-1 text-sm text-slate-500">Requests from customers who booked your published availability.</p></div>
+      {bookings.length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No shipment booking requests yet.</p> : <div className="space-y-3">{bookings.map(booking => {
+        const shipment = booking.shipmentRef || {};
+        const customer = booking.customerId || {};
+        const status = booking.status || "pending";
+        return <article id={`booking-${booking._id}`} key={booking._id} className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-slate-200 p-4">
+          <div><p className="font-semibold">{shipment.pickup || "Pickup"} → {shipment.destination || "Destination"}</p><p className="mt-1 text-sm text-slate-500">{customer.name || "Customer"} · {Number(booking.requestedCapacityKg || 0).toLocaleString("en-IN")} kg · {booking.vehicleId?.name || "Vehicle"}</p><span className="mt-2 inline-block rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold capitalize text-blue-700">{status.replaceAll("_", " ")}</span></div>
+          {status === "pending" ? <div className="flex gap-2"><button onClick={() => updateBooking(booking, "accept")} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white">Accept</button><button onClick={() => updateBooking(booking, "reject")} className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700">Reject</button></div> : status === "accepted" ? <button onClick={() => updateBooking(booking, "status", "in_transit")} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Mark in transit</button> : status === "in_transit" ? <button onClick={() => updateBooking(booking, "status", "delivered")} className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white">Mark delivered</button> : null}
+          {status === "in_transit" && <p role={gpsError || !navigator.geolocation ? "alert" : "status"} className={`w-full rounded-lg p-3 text-sm ${gpsError || !navigator.geolocation ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-800"}`}>{gpsError || (!navigator.geolocation ? "This browser does not support GPS location sharing." : "Sharing live GPS from this device while the shipment is in transit.")}</p>}
+          {["accepted", "in_transit"].includes(status) && <Suspense fallback={<div className="flex h-72 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">Loading interactive map…</div>}>
+            <RouteMap key={`driver-route-${booking._id}`} from={shipment.pickup || ""} to={shipment.destination || ""}
+              intermediateStops={shipment.intermediateStops || NO_ROUTE_STOPS} actionLabel={status === "in_transit" ? "Start Navigation" : "Open planned route"} className="w-full"/>
+          </Suspense>}
+        </article>;
+      })}</div>}
+    </section>
+    <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div><h2 className="text-lg font-bold text-slate-900">Published Availability</h2><p className="mt-1 text-sm text-slate-500">Trips and available truck capacity you have published.</p></div>
         <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{capacityPosts.length} post{capacityPosts.length === 1 ? "" : "s"}</span>
@@ -74,18 +174,21 @@ export default function MyRequests() {
         <button type="button" disabled={post.status !== "Available"} onClick={() => editPost(post)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"><Pencil size={15}/> Edit availability</button>
       </article>)}</div>}
       {editingPost && <form onSubmit={savePost} className="mt-5 rounded-xl border border-blue-200 bg-blue-50/50 p-4 sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3"><h3 className="font-semibold text-slate-900">Edit published availability</h3><button type="button" onClick={() => setEditingPost(null)} className="rounded-md p-1 text-slate-500 hover:bg-white" aria-label="Cancel editing"><X size={18}/></button></div>
+        <div className="mb-4 flex items-center justify-between gap-3"><h3 className="font-semibold text-slate-900">Edit published availability</h3><button type="button" onClick={clearEditingDraft} className="rounded-md p-1 text-slate-500 hover:bg-white" aria-label="Cancel editing"><X size={18}/></button></div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="text-xs font-semibold text-slate-600">Available capacity<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" type="number" min="0.1" step="0.1" max={editingPost.totalCapacity || undefined} required value={editingPost.availableCapacity} onChange={e => updatePost("availableCapacity", e.target.value)}/><span className="mt-1 block font-normal">{editingPost.capacityUnit}</span></label>
+          <label className="text-xs font-semibold text-slate-600">Vehicle / truck<select className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" required value={editingPost.vehicleId} onChange={e => { const vehicle = vehicles.find(item => item.id === e.target.value); setEditingPost(current => ({ ...current, vehicleId: e.target.value, vehicleName: vehicle?.name || "", vehicleNumber: vehicle?.number || "" })); }}><option value="">Select vehicle</option>{vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id} disabled={!vehicle.available && vehicle.id !== editingPost.vehicleId}>{vehicle.name} · {vehicle.number} · {vehicle.type}{vehicle.available ? "" : " (unavailable)"}</option>)}</select><span className="mt-1 block font-normal">Registration: {editingVehicle?.number || editingPost.vehicleNumber || "Not available"}</span></label>
+          <label className="text-xs font-semibold text-slate-600">Available capacity (KG)<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" type="number" min="0.1" step="0.1" max={editingVehicle ? capacityToKg(editingVehicle.capacity, editingVehicle.capacityUnit) : undefined} required value={editingPost.availableCapacity} onChange={e => updatePost("availableCapacity", e.target.value)}/></label>
           <label className="text-xs font-semibold text-slate-600">Travel date<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" type="date" required value={editingPost.date} onChange={e => updatePost("date", e.target.value)}/></label>
           <label className="text-xs font-semibold text-slate-600">From<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" required value={editingPost.from} onChange={e => updatePost("from", e.target.value)}/></label>
           <label className="text-xs font-semibold text-slate-600">To<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" required value={editingPost.to} onChange={e => updatePost("to", e.target.value)}/></label>
-          <label className="text-xs font-semibold text-slate-600">Company name<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" value={editingPost.companyName} onChange={e => updatePost("companyName", e.target.value)}/></label>
-          <label className="text-xs font-semibold text-slate-600">Contact number<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" value={editingPost.contactNumber} onChange={e => updatePost("contactNumber", e.target.value)}/></label>
+          <label className="text-xs font-semibold text-slate-600">Price (optional)<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" type="number" min="0" step="0.01" value={editingPost.price ?? ""} onChange={e => updatePost("price", e.target.value === "" ? null : Number(e.target.value))}/></label>
+          <label className="text-xs font-semibold text-slate-600">Price type<select className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" value={editingPost.priceType || "negotiable"} onChange={e => updatePost("priceType", e.target.value)}><option value="negotiable">Negotiable</option><option value="fixed">Fixed</option></select></label>
+          <label className="text-xs font-semibold text-slate-600">Company name<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" value={editingPost.companyName || ""} onChange={e => updatePost("companyName", e.target.value)}/></label>
+          <label className="text-xs font-semibold text-slate-600">Contact number<input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" value={editingPost.contactNumber || ""} onChange={e => updatePost("contactNumber", e.target.value)}/></label>
           <fieldset className="sm:col-span-2 lg:col-span-3"><legend className="mb-2 text-xs font-semibold text-slate-600">Cargo types accepted</legend><div className="flex flex-wrap gap-2">{["Small goods", "Industrial goods", "Fragile goods", "General cargo"].map(type => <label key={type} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"><input type="checkbox" checked={editingPost.loadTypes.includes(type)} onChange={() => togglePostLoad(type)}/>{type}</label>)}</div></fieldset>
-          <label className="text-xs font-semibold text-slate-600 sm:col-span-2 lg:col-span-3">Notes<textarea className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" rows="2" value={editingPost.notes} onChange={e => updatePost("notes", e.target.value)}/></label>
+          <label className="text-xs font-semibold text-slate-600 sm:col-span-2 lg:col-span-3">Notes<textarea className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-800" rows="2" value={editingPost.notes || ""} onChange={e => updatePost("notes", e.target.value)}/></label>
         </div>
-        <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={() => setEditingPost(null)} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button><button disabled={savingPost} type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"><Save size={15}/>{savingPost ? "Saving…" : "Save changes"}</button></div>
+        <div className="mt-4 flex justify-end gap-2"><button type="button" onClick={clearEditingDraft} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Discard draft</button><button disabled={savingPost} type="submit" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"><Save size={15}/>{savingPost ? "Saving…" : "Save changes"}</button></div>
       </form>}
     </section>
     <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{["All","Pending","Accepted","Rejected","In Transit","Completed"].map(s=><button key={s} onClick={()=>setFilter(s)} className={`rounded-xl border p-3 text-left ${filter===s?"border-blue-300 bg-blue-50 ring-1 ring-blue-100":"border-slate-200 bg-white hover:bg-slate-50"}`}><p className="text-xs font-medium text-slate-500">{s}</p><p className="mt-1 text-xl font-bold text-slate-900">{counts[s]}</p></button>)}</div>

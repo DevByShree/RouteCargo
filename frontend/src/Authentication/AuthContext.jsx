@@ -40,22 +40,35 @@ export function AuthProvider({ children }) {
       };
     }
 
-    authAPI.refresh()
-      .then((result) => {
-        if (active) {
+    const restore = async () => {
+      let retry = 0;
+      while (active) {
+        try {
+          const result = await authAPI.refresh();
+          if (!active) return;
           setUser(result.user || null);
           try { localStorage.setItem(SESSION_HINT_KEY, "1"); } catch { /* Cookie session still works. */ }
+          return;
+        } catch (error) {
+          if (!active) return;
+          if ([401, 403].includes(error.status)) {
+            setUser(null);
+            try { localStorage.removeItem(SESSION_HINT_KEY); } catch { /* Ignore unavailable storage. */ }
+            return;
+          }
+          // Keep protected routes in their restoring state while connectivity
+          // or the API is unavailable. Do not turn a transient failure into a
+          // logout; retry with a capped delay until the session is resolved.
+          const delay = Math.min(1000 * (2 ** Math.min(retry, 5)), 30000);
+          retry += 1;
+          await new Promise((resolve) => window.setTimeout(resolve, delay));
         }
-      })
-      .catch(() => {
-        if (active) {
-          setUser(null);
-          try { localStorage.removeItem(SESSION_HINT_KEY); } catch { /* Ignore unavailable storage. */ }
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+      }
+    };
+
+    restore().finally(() => {
+      if (active) setLoading(false);
+    });
 
     return () => {
       active = false;

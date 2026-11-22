@@ -22,6 +22,7 @@ const ShipmentSchema = new mongoose.Schema(
             required: true,
             trim: true,
         },
+        pickupDate: { type: Date, default: null, index: true },
     },
     { timestamps: true, versionKey: false }
 )

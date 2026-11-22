@@ -12,6 +12,7 @@ const createParcel = async (req, res) => {
             productName,
             parcelType,
             numberOfPackages,
+            weightKg,
             productImages,
             description,
         } = req.body;
@@ -56,6 +57,11 @@ const createParcel = async (req, res) => {
                 success: false,
                 message: "Number of packages must be at least 1",
             });
+        }
+
+        const shipmentWeight = Number(weightKg);
+        if (!Number.isFinite(shipmentWeight) || shipmentWeight <= 0) {
+            return res.status(400).json({ success: false, message: "Parcel weightKg must be greater than 0" });
         }
 
         // 4. Parcel type validate karna
@@ -151,6 +157,7 @@ const createParcel = async (req, res) => {
             productName: productName.trim(),
             parcelType: parcelType.trim(),
             numberOfPackages: packages,
+            weightKg: shipmentWeight,
             productImages: productImages || [],
             description: description?.trim() || "",
         });

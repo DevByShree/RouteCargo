@@ -8,6 +8,7 @@ const driverRoutes = require("./routes/driverRoutes");
 const shipmentRoutes = require("./routes/shipment");
 const parcelRoutes = require("./routes/parcel");
 const bookingRoutes = require("./routes/booking");
+const notificationRoutes = require("./routes/notifications");
 
 const app = express();
 const allowedOrigins = (process.env.CLIENT_ORIGINS || process.env.CLIENT_URL || "http://localhost:5173")
@@ -24,7 +25,8 @@ app.use(cors({
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads/vehicles/photos", express.static(path.join(__dirname, "../uploads/vehicles/photos")));
+app.use("/uploads/profiles", express.static(path.join(__dirname, "../uploads/profiles")));
 
 app.use("/api", (req, res, next) => {
   const origin = req.get("origin");
@@ -44,6 +46,7 @@ app.use("/api/driver", driverRoutes);
 app.use("/api/shipments", shipmentRoutes);
 app.use("/api/parcel", parcelRoutes);
 app.use("/api/booking", bookingRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

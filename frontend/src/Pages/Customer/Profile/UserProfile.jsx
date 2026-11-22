@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { authAPI } from "../../../API/api";
+import { API_BASE, authAPI } from "../../../API/api";
 import { User, Mail, Phone, Building2, Pencil, Check, X, AlertCircle, BadgeCheck } from "lucide-react";
+import { useAuth } from "../../../Authentication/useAuth";
 
 const FIELDS = [
     { name: "name", label: "Full Name", icon: User, type: "text", placeholder: "Your full name", autoComplete: "name" },
@@ -9,7 +10,7 @@ const FIELDS = [
     { name: "company", label: "Company", icon: Building2, type: "text", placeholder: "Company name (optional)", autoComplete: "organization", optional: true },
 ];
 
-const EMPTY_USER = { name: "", email: "", phone: "", company: "", role: "customer" };
+const EMPTY_USER = { name: "", email: "", phone: "", company: "", role: "customer", profilePhoto: "" };
 
 // Make sure every field is a string so inputs never get undefined
 const normalize = (u = {}) => ({
@@ -18,6 +19,7 @@ const normalize = (u = {}) => ({
     phone: u.phone ? String(u.phone) : "",
     company: u.company || "",
     role: u.role || "customer",
+    profilePhoto: u.profilePhoto || "",
 });
 
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -40,6 +42,7 @@ function Skeleton({ className = "" }) {
 }
 
 export default function Profile() {
+    const { updateUser } = useAuth();
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [editing, setEditing] = useState(false);
@@ -49,6 +52,10 @@ export default function Profile() {
     const [saved, setSaved] = useState(false);
     const [saving, setSaving] = useState(false);
     const [apiError, setApiError] = useState("");
+    const [photoBusy, setPhotoBusy] = useState(false);
+    const [photoPreview, setPhotoPreview] = useState("");
+    const [photoMessage, setPhotoMessage] = useState("");
+    const photoInput = useRef(null);
     const timer = useRef(null);
 
     // Load the real logged-in user (no more hardcoded name)
@@ -73,6 +80,47 @@ export default function Profile() {
     }, []);
 
     useEffect(() => () => clearTimeout(timer.current), []);
+    useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
+
+    const uploadPhoto = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) return;
+        const preview = URL.createObjectURL(file);
+        setPhotoPreview(preview);
+        setPhotoMessage("");
+        setPhotoBusy(true);
+        try {
+            const response = await authAPI.uploadProfilePhoto(file);
+            const profilePhoto = response.data?.profilePhoto || "";
+            setUser(current => ({ ...current, profilePhoto }));
+            setDraft(current => ({ ...current, profilePhoto }));
+            updateUser({ profilePhoto });
+            setPhotoMessage("Profile photo updated.");
+            setPhotoPreview("");
+        } catch (error) {
+            setPhotoMessage(error.data?.message || error.message || "Could not upload the photo.");
+        } finally {
+            setPhotoBusy(false);
+        }
+    };
+
+    const removePhoto = async () => {
+        setPhotoBusy(true);
+        setPhotoMessage("");
+        try {
+            await authAPI.removeProfilePhoto();
+            setUser(current => ({ ...current, profilePhoto: "" }));
+            setDraft(current => ({ ...current, profilePhoto: "" }));
+            updateUser({ profilePhoto: "" });
+            setPhotoPreview("");
+            setPhotoMessage("Profile photo removed.");
+        } catch (error) {
+            setPhotoMessage(error.data?.message || error.message || "Could not remove the photo.");
+        } finally {
+            setPhotoBusy(false);
+        }
+    };
 
     const changed = FIELDS.some((f) => draft[f.name] !== user[f.name]);
 
@@ -158,9 +206,19 @@ export default function Profile() {
                             </div>
                         ) : (
                             <>
-                                <span className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-700 text-3xl font-bold text-white ring-4 ring-blue-50">
-                                    {initials(user.name)}
-                                </span>
+                                <div className="flex flex-col items-center">
+                                    {photoPreview || user.profilePhoto ? (
+                                        <img src={photoPreview || `${API_BASE}${user.profilePhoto}`} alt={`${user.name || "Profile"} profile`} className="h-24 w-24 rounded-full object-cover ring-4 ring-blue-50" />
+                                    ) : (
+                                        <span className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-700 text-3xl font-bold text-white ring-4 ring-blue-50">{initials(user.name)}</span>
+                                    )}
+                                    <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={uploadPhoto} />
+                                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                        <button type="button" disabled={photoBusy} onClick={() => photoInput.current?.click()} className="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 disabled:opacity-50">{photoBusy ? "Uploading…" : user.profilePhoto ? "Change Photo" : "Upload Photo"}</button>
+                                        {user.profilePhoto && <button type="button" disabled={photoBusy} onClick={removePhoto} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 disabled:opacity-50">Remove</button>}
+                                    </div>
+                                    {photoMessage && <p role="status" className="mt-2 text-xs text-slate-600">{photoMessage}</p>}
+                                </div>
                                 <h2 className="mt-4 max-w-full truncate text-lg font-bold text-blue-950" title={user.name}>
                                     {user.name || "Your name"}
                                 </h2>

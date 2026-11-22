@@ -5,6 +5,8 @@ const schema = new mongoose.Schema({
     ownerName: { type: String, required: true, trim: true, maxlength: 100 },
     contactNumber: { type: String, trim: true, maxlength: 20, default: '' },
     email: { type: String, trim: true, lowercase: true },
+    verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
+    isActive: { type: Boolean, default: true, index: true },
     altNumber: { type: String, trim: true, default: '' },
     address: { type: String, trim: true, default: '' },
     companyName: { type: String, trim: true, default: '' },

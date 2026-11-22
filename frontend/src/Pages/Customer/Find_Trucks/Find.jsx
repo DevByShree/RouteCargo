@@ -1,217 +1,123 @@
-import { useEffect, useState } from "react";
-import tc from "../../../assets/tc.png"
-import ind from "../../../assets/ind.png"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { CalendarDays, MapPin, Search, Truck, RefreshCw, BadgeCheck, Package } from "lucide-react";
 import { driverApi } from "../../../API/driverApi";
+import { clearRememberedShipment, getRememberedShipment } from "../../../API/Shipmentapi";
+import { API_BASE, bookingAPI } from "../../../API/api";
+import { useFormDraft } from "../../../Authentication/useFormDraft";
+import { useAuth } from "../../../Authentication/useAuth";
+import { clearStoredDraft, formDraftKey } from "../../../Authentication/formDraftStorage.js";
+import { clearShipmentDraftImages } from "../../../Authentication/shipmentImageDraftStorage.js";
 
-function Find({ formData }) {
+const currency = value => value == null
+  ? "Price on request"
+  : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value));
+const indiaDateLabel = value => value
+  ? new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" }).format(new Date(value))
+  : "Not specified";
 
-    const [showFilters, setShowFilters] = useState(false);
-    const [posts, setPosts] = useState([]);
-    const [error, setError] = useState("");
-    useEffect(() => { driverApi.listPublicCapacity().then(setPosts).catch(e => setError(e.message)); }, []);
+export default function Find() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const shipment = location.state?.shipment;
+  const { user } = useAuth();
+  const rememberedShipment = getRememberedShipment(user?.id);
+  const shipmentId = location.state?.shipmentId || shipment?.shipmentid || shipment?.shipmentId || Number(sessionStorage.getItem("currentShipmentId")) || rememberedShipment?.shipmentId || null;
+  const [posts, setPosts] = useState([]);
+  const [filters, setFilters, clearFilters] = useFormDraft({
+    formId: "find-trucks-filters",
+    initialValue: { type: "", cargoType: "", maxPrice: "", sort: "best" },
+    validate: value => value && typeof value === "object"
+      && typeof value.type === "string" && value.type.length <= 80
+      && ["", "Small goods", "Industrial goods", "Fragile goods", "General cargo"].includes(value.cargoType)
+      && typeof value.maxPrice === "string" && (value.maxPrice === "" || /^\d{1,10}(\.\d{1,2})?$/.test(value.maxPrice))
+      && ["best", "price"].includes(value.sort),
+  });
+  const { type, cargoType, maxPrice, sort } = filters;
+  const setType = value => setFilters(current => ({ ...current, type: value }));
+  const setCargoType = value => setFilters(current => ({ ...current, cargoType: value }));
+  const setMaxPrice = value => setFilters(current => ({ ...current, maxPrice: value }));
+  const setSort = value => setFilters(current => ({ ...current, sort: value }));
+  const [loading, setLoading] = useState(false);
+  const [bookingId, setBookingId] = useState("");
+  const [error, setError] = useState("");
 
-    const {
-        pickup = {
-            location: "Pune, Maharashtra",
-            date: "22 Sep 2026",
-            time: "09:00 AM",
-        },
-        delivery = {
-            location: "Mumbai, Maharashtra",
-            date: "23 Sep 2026",
-            time: "06:00 PM",
-        },
-        parcel = {
-            category: "Electronics",
-            packages: 10,
-            weight: 1200,
-            volume: 0.72,
-        },
-        distance = "150 Km",
-        estimatedTime = "3-4 Hrs",
-    } = formData || {};
+  const load = useCallback(async () => {
+    if (!shipmentId) return;
+    setLoading(true);
+    setError("");
+    try {
+      setPosts(await driverApi.listPublicCapacity({ shipmentId, type, cargoType, maxPrice, sort }));
+    } catch (requestError) {
+      if (requestError.status === 404 && requestError.data?.message === "Shipment not found") {
+        sessionStorage.removeItem("currentShipmentId");
+        setError("This shipment is no longer available. Create a new shipment to search for trucks.");
+      } else {
+        setError(requestError.message || "Could not load available trucks.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [shipmentId, type, cargoType, maxPrice, sort]);
 
-    const trucks = posts.map(post => ({
-        id: post.id,
-        image: tc,
-        name: post.companyName || post.contactName || "RouteCargo Driver",
-        verified: false,
-        matchPercent: 0,
-        matchLabel: "Published trip",
-        vehicle: post.vehicleType || post.truckName || "Truck",
-        vehicleNo: post.truckNumber || "",
-        route: `${post.from} → ${post.to}`,
-        depTime: `Travel date: ${post.date}`,
-        arrTime: `Accepts: ${(post.loadTypes || []).join(", ")}`,
-        capacity: `${post.availableCapacity} ${post.capacityUnit} available`,
-        capacityPercent: post.totalCapacity ? Math.min(100, Number(post.availableCapacity) / Number(post.totalCapacity) * 100) : 100,
-        price: "Contact driver",
-        priceNote: post.contactPhone || "Contact details available after sign in",
-        driver: post.contactName || post.companyName || "Driver",
-        rating: "—",
-        reviews: 0,
-    }));
+  useEffect(() => {
+    const timer = window.setTimeout(load, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
-    return (
-        <div className="flex flex-col min-h-screen bg-slate-50 font-sans">
+  const route = useMemo(() => ({
+    from: shipment?.pickup || location.state?.pickup || rememberedShipment?.pickup || "",
+    to: shipment?.destination || location.state?.destination || rememberedShipment?.destination || "",
+    date: indiaDateLabel(shipment?.pickupDate || rememberedShipment?.pickupDate),
+  }), [shipment, location.state, rememberedShipment]);
 
-            {/* Header */}
-            <div className="px-4 sm:px-6 lg:px-8 pt-4 pb-3">
-                <div className="font-bold text-xl sm:text-2xl py-1 text-gray-900">
-                    Find Available Trucks
-                </div>
-                <span className="text-gray-500 text-sm">
-                    We found {trucks.length} trucks travelling on your route or nearby routes
-                </span>
-                {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
-            </div>
-            <button
-                onClick={() => setShowFilters((s) => !s)}
-                className="lg:hidden mx-4 sm:mx-6 mt-3 bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 flex items-center justify-between"
-            >
-                Filters
-                <span className="text-gray-400">{showFilters ? "▲" : "▼"}</span>
-            </button>
+  const book = async post => {
+    setBookingId(post.id);
+    setError("");
+    try {
+      await bookingAPI.create({ availabilityId: post.id, shipmentId });
+      clearFilters();
+      clearStoredDraft(formDraftKey({ role: user?.role, userId: user?.id, formId: `parcel-details-${shipmentId || "pending"}` }));
+      try { await clearShipmentDraftImages(user?.id, shipmentId); } catch { /* Booking succeeded; stale local image blobs are harmless and scoped to this user and shipment. */ }
+      sessionStorage.removeItem("currentShipmentId");
+      clearRememberedShipment(user?.id);
+      navigate("/user/Booking", { state: { message: "Booking request sent." } });
+    } catch (requestError) {
+      setError(requestError.data?.message || requestError.message || "Could not send the booking request.");
+    } finally {
+      setBookingId("");
+    }
+  };
 
-            <div className="flex flex-col lg:flex-row flex-1 gap-4 px-4 sm:px-6 lg:px-8 py-4 items-start">
-                <div className="flex-1 w-full flex flex-col gap-3 min-w-0">
-
-                    <div className="flex justify-between items-center bg-white rounded-lg px-3 py-2 lg:bg-transparent lg:px-0 lg:py-0">
-                        <span className="font-bold text-sm">{trucks.length} Trucks Found</span>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span className="hidden sm:inline">Sort by</span>
-                            <select className="border border-gray-200 rounded-md px-2 py-1 text-xs">
-                                <option>Best Match</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {trucks.map((truck) => (
-                        <div key={truck.id} className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col md:flex-row gap-3 items-start">
-                            {/* Image placeholder */}
-                            <img
-                                src={truck.image}
-                                alt={truck.name}
-                                className="w-full md:w-28 h-24 md:h-20 rounded-md bg-gray-200 object-cover shrink-0" />
-                            {/* Details */}
-                            <div className="flex-1 w-full flex flex-col gap-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="font-bold text-sm">{truck.name}</span>
-                                    <span className="text-xs text-blue-600 bg-blue-100 rounded px-1.5 py-0.5 md:ml-auto">
-                                        {truck.matchLabel}
-                                    </span>
-                                </div>
-
-                                <span className="text-xs text-gray-600">{truck.vehicle}</span>
-                                <span className="text-xs text-gray-400">{truck.vehicleNo}</span>
-
-                                <div className="flex items-center gap-1 text-xs text-gray-500">
-                                    <span>📍 {truck.route}</span>
-                                </div>
-                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
-                                    <span>{truck.depTime}</span>
-                                    <span>{truck.arrTime}</span>
-                                </div>
-                            </div>
-
-                            {/* Capacity + Price */}
-                            <div className="flex flex-col gap-1 w-full md:w-32 shrink-0">
-                                <span className="text-xs text-gray-500">Available Capacity</span>
-                                <span className="font-semibold text-xs">{truck.capacity}</span>
-                                <div className="h-1.5 bg-gray-200 rounded overflow-hidden">
-                                    <div className="h-full bg-blue-600" style={{ width: `${truck.capacityPercent}%` }} />
-                                </div>
-                                <span className="font-bold text-sm text-gray-900 mt-1">{truck.price}</span>
-                                <span className="text-xs text-gray-400">{truck.priceNote}</span>
-                            </div>
-
-                            {/* Driver + Actions */}
-                            <div className="flex flex-col items-start md:items-end gap-1.5 w-full md:w-36 shrink-0">
-                                <span className="text-xs text-blue-600 cursor-pointer">View Details</span>
-                                <div className="flex items-center gap-1.5">
-                                    <img
-                                        src=""
-                                        alt={truck.driver}
-                                        className="w-6 h-6 rounded-full bg-gray-200"
-                                    />
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-semibold">{truck.driver}</span>
-                                        <span className="text-xs text-gray-400">⭐ {truck.rating} ({truck.reviews})</span>
-                                    </div>
-                                </div>
-                                <button className="bg-blue-600 text-white rounded-md px-3 py-1.5 text-xs font-semibold cursor-pointer hover:bg-blue-700 transition w-full">
-                                    Request Booking →
-                                </button>
-                            </div>
-
-                        </div>
-                    ))}
-
-                </div>
-
-                {/* Right: Map + Shipment Details */}
-                <div className="w-full lg:w-64 shrink-0 flex flex-col gap-3">
-
-                    {/* Map */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-xs">Route Map</span>
-                            <span className="text-xs text-blue-600">Nearby Trucks ({trucks.length})</span>
-                        </div>
-                        <img
-                            src={ind}
-                            alt="Route Map"
-                            className="w-full h-40 rounded-md bg-gray-200 object-cover"
-                        />
-                    </div>
-
-                    {/* Shipment Details - fully driven by formData */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-3 flex flex-col gap-2.5">
-                        <div className="flex justify-between items-center">
-                            <span className="font-bold text-xs">Your Shipment Details</span>
-                            <span className="text-xs text-blue-600 cursor-pointer">✎ Edit</span>
-                        </div>
-
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-xs text-green-600">🟢 Pickup</span>
-                            <span className="text-xs font-semibold">{pickup.location}</span>
-                            <span className="text-xs text-gray-400">{pickup.date}, {pickup.time}</span>
-                        </div>
-
-                        <div className="flex flex-col gap-0.5">
-                            <span className="text-xs text-red-600">🔴 Delivery</span>
-                            <span className="text-xs font-semibold">{delivery.location}</span>
-                            <span className="text-xs text-gray-400">{delivery.date}, {delivery.time}</span>
-                        </div>
-
-                        <div className="border-t border-gray-200 pt-2 flex flex-col gap-0.5">
-                            <span className="text-xs font-semibold">📦 {parcel.category}</span>
-                            <span className="text-xs text-gray-400">
-                                {parcel.packages} packages • {parcel.weight} kg • {parcel.volume} m³
-                            </span>
-                        </div>
-
-                        <div className="flex flex-wrap justify-between gap-2 text-xs text-gray-500">
-                            <div className="flex flex-col">
-                                <span>Distance</span>
-                                <span className="font-semibold text-gray-900">{distance}</span>
-                            </div>
-                            <div className="flex flex-col">
-                                <span>Est. Time</span>
-                                <span className="font-semibold text-gray-900">{estimatedTime}</span>
-                            </div>
-                            <div className="flex flex-col">
-                                <span>Pref. Date</span>
-                                <span className="font-semibold text-gray-900">{pickup.date}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-    );
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-7 text-slate-900 sm:px-7">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div><h1 className="text-2xl font-bold">Find Available Trucks</h1><p className="mt-1 text-sm text-slate-600">Live availability matching your saved shipment route, date, and parcel weight.</p></div>
+          <button type="button" onClick={load} disabled={loading || !shipmentId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"><RefreshCw size={15}/> Refresh</button>
+        </header>
+        {!shipmentId ? <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Create a shipment and add parcel weight before searching for trucks.<button type="button" onClick={() => navigate("/user/shipment")} className="ml-2 font-semibold underline">Create shipment</button></section> : <>
+          <section className="mb-5 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
+            <p className="flex items-center gap-2 text-sm"><MapPin size={16} className="text-emerald-600"/>{route.from} → {route.to}</p>
+            <p className="flex items-center gap-2 text-sm"><CalendarDays size={16} className="text-blue-600"/>Pickup: {route.date}</p>
+            <label className="flex items-center gap-2 text-sm"><Search size={16} className="text-slate-500"/><select value={type} onChange={e => setType(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1"><option value="">All truck types</option>{["Tata", "Ashok", "Eicher", "Container", "Trailer", "Other"].map(value => <option key={value}>{value}</option>)}</select></label>
+            <label className="flex items-center gap-2 text-sm"><Package size={16} className="text-slate-500"/><select aria-label="Accepted cargo type" value={cargoType} onChange={e => setCargoType(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1"><option value="">All cargo types</option>{["Small goods", "Industrial goods", "Fragile goods", "General cargo"].map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+            <label className="text-sm sm:col-start-2">Maximum listed price <input type="number" min="0" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="ml-2 w-28 rounded border border-slate-200 px-2 py-1" placeholder="Any"/></label>
+            <label className="text-sm">Sort <select value={sort} onChange={e => setSort(e.target.value)} className="ml-2 rounded border border-slate-200 px-2 py-1"><option value="best">Best route/date</option><option value="price">Lowest price</option></select></label>
+            <button type="button" onClick={clearFilters} className="justify-self-start rounded border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Clear filters</button>
+          </section>
+          {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+          <p className="mb-3 text-sm font-semibold text-slate-700">{loading ? "Searching live availability…" : `${posts.length} matching ${posts.length === 1 ? "truck" : "trucks"}`}</p>
+          {!loading && posts.length === 0 ? <section className="rounded-xl border border-slate-200 bg-white p-12 text-center"><Truck size={32} className="mx-auto text-slate-300"/><h2 className="mt-3 font-semibold">No available trucks for this shipment</h2><p className="mt-1 text-sm text-slate-500">Availability must match the route and exact pickup date ({route.date}). A truck posted for November 23 will not match a November 21 shipment.</p></section> : <div className="space-y-3">
+            {posts.map(post => <article key={post.id} className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_auto] md:items-center">
+              <div className="flex gap-3">{post.photos?.[0]?.url ? <img src={`${API_BASE}${post.photos[0].url}`} alt="Truck" className="h-20 w-24 rounded-lg bg-slate-100 object-cover"/> : <div className="flex h-20 w-24 items-center justify-center rounded-lg bg-blue-50 text-blue-600"><Truck size={28}/></div>}
+                <div className="min-w-0"><h2 className="font-semibold">{post.vehicleName} <span className="font-normal text-slate-500">· {post.vehicleType}</span></h2><p className="mt-1 flex flex-wrap items-center gap-1 text-sm text-slate-600"><MapPin size={14}/>{post.from} → {post.to}</p><p className="mt-1 text-sm text-slate-600">{post.driverName} · {post.driver?.verificationStatus === "approved" ? <span className="inline-flex items-center gap-1 text-emerald-700"><BadgeCheck size={14}/> Verified</span> : "Profile active"}</p><p className="mt-1 text-xs text-slate-500">{new Date(post.date).toLocaleDateString("en-IN")} · {post.availableCapacityKg.toLocaleString("en-IN")} kg capacity available</p></div>
+              </div>
+              <div className="flex items-center justify-between gap-4 md:justify-end"><div><p className="font-bold">{currency(post.price)}{post.priceType === "negotiable" ? " · negotiable" : ""}</p><p className="text-xs text-slate-500">Expected freight</p></div><button type="button" onClick={() => book(post)} disabled={Boolean(bookingId)} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{bookingId === post.id ? "Sending…" : "Book truck"}</button></div>
+            </article>)}
+          </div>}
+        </>}
+      </div>
+    </main>
+  );
 }
-
-export default Find;

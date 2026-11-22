@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const AuthSession = require("../models/AuthSession");
+const { disconnectSession } = require("../realtime/notificationHub");
 const User = require("../models/User");
 const DriverProfile = require("../models/DriverProfile");
 const mongoose = require("mongoose");
@@ -54,6 +55,7 @@ function publicUser(user) {
     email: user.email,
     phone: user.phone || "",
     company: user.company || "",
+    profilePhoto: user.profilePhoto || "",
     role: user.role,
   };
 }
@@ -444,6 +446,7 @@ exports.signout = async (req, res) => {
         { familyId: session.familyId, revokedAt: null },
         { $set: { revokedAt: new Date() } }
       );
+      await disconnectSession(session.familyId);
     }
   }
 

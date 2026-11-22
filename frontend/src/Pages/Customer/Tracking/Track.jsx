@@ -1,317 +1,199 @@
-import { useEffect, useRef, useState } from "react";
-import {
-    Link2, Check, Clock, MapPin, CircleDot, Package, Scale, Boxes, ArrowRight, Phone,
-    MessageCircle, BadgeCheck, Star, Truck, Gauge, Ruler, Timer, FileText, PartyPopper,
-    PackageCheck, PackageOpen, Route as RouteIcon,
-} from "lucide-react";
-import mapImg from "../../../assets/map.png";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { io } from "socket.io-client";
+import { BadgeCheck, CalendarDays, Check, Circle, MapPin, RefreshCw, Truck } from "lucide-react";
+import { API_BASE, bookingAPI } from "../../../API/api";
+const RouteMap = lazy(() => import("../../components/RouteMap"));
 
-// Replace with data from your API / location.state
-const SHIPMENT = {
-    id: "BK2026091803",
-    status: "In Transit",
-    transporter: "Shree Roadlines",
-    vehicleNo: "MH12 XY 9012",
-    vehicle: "Ashok Leyland 12 Ton",
-    pickup: { location: "Pune", state: "Maharashtra", date: "18 Sep 2026", time: "09:00 AM" },
-    delivery: { location: "Bengaluru", state: "Karnataka", date: "20 Sep 2026", time: "08:00 PM" },
-    parcelType: "Electronics",
-    packages: 15,
-    weight: "2,400 kg",
-    volume: "1.10 m³",
-    eta: "Today, 08:00 PM",
-};
+const labels = { pending: "Awaiting driver response", accepted: "Accepted", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", rejected: "Booking rejected", cancelled: "Booking cancelled" };
+const timeline = ["Booking Requested", "Booking Accepted", "Truck Assigned", "In Transit", "Delivered", "Completed"];
+const progressIndex = { pending: 0, accepted: 2, in_transit: 3, delivered: 4, completed: 5 };
+const formatPrice = value => value == null
+  ? "Not available"
+  : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value));
+const isAssigned = status => ["accepted", "in_transit", "delivered", "completed"].includes(status);
 
-const LIVE = {
-    currentLocation: "Near Hubballi, Karnataka",
-    lastUpdated: "19 Sep 2026, 04:20 PM",
-    speed: "80 km/h",
-    coveredKm: 820,
-    remainingKm: 280,
-};
-
-const DRIVER = { name: "Amit Jadhav", phone: "+910000000000", rating: 4.5, reviews: 76, verified: true };
-
-const ACTIVITY = [
-    { icon: Truck, title: "Crossed Hubballi toll plaza", time: "19 Sep, 04:20 PM", done: true, current: true },
-    { icon: Truck, title: "Left Belagavi checkpoint", time: "19 Sep, 01:05 PM", done: true },
-    { icon: PackageCheck, title: "Parcel picked up from Pune", time: "18 Sep, 09:20 AM", done: true },
-    { icon: Check, title: "Booking confirmed and paid", time: "17 Sep, 06:45 PM", done: true },
-];
-
-const initials = (name) => name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-
-function Card({ className = "", children }) {
-    return (
-        <section className={`min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
-            {children}
-        </section>
-    );
+const toRadians = degrees => degrees * Math.PI / 180;
+function distanceKm(a, b) {
+  const [lat1, lon1] = a.map(toRadians);
+  const [lat2, lon2] = b.map(toRadians);
+  const dLat = lat2 - lat1;
+  const dLon = lon2 - lon1;
+  const value = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
 }
 
-function Row({ icon: Icon, label, children }) {
-    return (
-        <div className="flex items-start justify-between gap-4 text-sm">
-            <span className="flex shrink-0 items-center gap-2 text-slate-500">
-                <Icon className="h-4 w-4 text-slate-400" /> {label}
-            </span>
-            <span className="min-w-0 text-right font-semibold text-slate-900">{children}</span>
-        </div>
-    );
+function routeProgress(route, position) {
+  if (!route?.positions?.length || !position) return null;
+  const points = route.positions;
+  let total = 0;
+  const lengths = points.slice(1).map((point, index) => {
+    const length = distanceKm(points[index], point);
+    total += length;
+    return length;
+  });
+  if (!total) return null;
+  let prior = 0;
+  let nearest = { distance: Infinity, travelled: 0 };
+  points.slice(1).forEach((point, index) => {
+    const start = points[index];
+    const end = point;
+    const scaleX = Math.cos(toRadians((start[0] + end[0]) / 2));
+    const ax = start[1] * scaleX;
+    const ay = start[0];
+    const bx = end[1] * scaleX;
+    const by = end[0];
+    const px = position.longitude * scaleX;
+    const py = position.latitude;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const denominator = dx * dx + dy * dy;
+    const fraction = denominator ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / denominator)) : 0;
+    const offset = Math.hypot(px - (ax + fraction * dx), py - (ay + fraction * dy));
+    const snapped = [start[0] + (end[0] - start[0]) * fraction, start[1] + (end[1] - start[1]) * fraction];
+    const offsetKm = distanceKm([position.latitude, position.longitude], snapped);
+    if (offset < nearest.distance) nearest = { distance: offset, offsetKm, travelled: prior + lengths[index] * fraction };
+    prior += lengths[index];
+  });
+  if (nearest.offsetKm > Math.max(5, (Number(position.accuracyMeters) || 0) * 2 / 1000)) return null;
+  const roadDistance = Number(route.distanceKm) || total;
+  const travelled = Math.min(roadDistance, roadDistance * nearest.travelled / total);
+  return { travelled, remaining: Math.max(0, roadDistance - travelled), roadDistance };
+}
+
+function formatEta(route, progress) {
+  if (!route?.durationSeconds || !progress || !progress.roadDistance) return "Unavailable";
+  const eta = new Date(Date.now() + route.durationSeconds * 1000 * progress.remaining / progress.roadDistance);
+  return new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }).format(eta);
 }
 
 export default function TrackShipment() {
-    const [mapMode, setMapMode] = useState("map"); // hook this up to your map library (roadmap / satellite)
-    const [copied, setCopied] = useState(false);
-    const timer = useRef(null);
-    const s = SHIPMENT;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedBookingId = searchParams.get("bookingId");
+  const [bookings, setBookings] = useState([]);
+  const [selected, setSelected] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [trackingState, setTrackingState] = useState({ bookingId: "", position: null, message: "" });
+  const [routeState, setRouteState] = useState({ bookingId: "", route: null });
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await bookingAPI.mine();
+      const rows = result.data || [];
+      setBookings(rows);
+      setSelected(current => rows.some(row => row._id === requestedBookingId)
+        ? requestedBookingId
+        : rows.some(row => row._id === current) ? current : rows[0]?._id || "");
+      setError("");
+    } catch (requestError) {
+      setError(requestError.message || "Could not load shipment status.");
+    } finally { setLoading(false); }
+  }, [requestedBookingId]);
+  useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); }, [load]);
 
-    const totalKm = LIVE.coveredKm + LIVE.remainingKm;
-    const percent = Math.round((LIVE.coveredKm / totalKm) * 100);
+  const booking = bookings.find(item => item._id === selected);
+  const shipment = booking?.shipmentRef || {};
+  const driver = booking?.driverId;
+  const vehicle = booking?.vehicleId;
+  const assigned = isAssigned(booking?.status);
+  const terminalDecline = ["rejected", "cancelled"].includes(booking?.status);
+  const currentProgress = progressIndex[booking?.status] ?? 0;
+  const vehiclePhoto = vehicle?.photos?.[0]?.url;
+  const bookingId = booking?._id;
+  const livePosition = trackingState.bookingId === bookingId ? trackingState.position : null;
+  const trackingMessage = trackingState.bookingId === bookingId ? trackingState.message : "";
+  const route = routeState.bookingId === bookingId ? routeState.route : null;
+  const progress = routeProgress(route, livePosition);
 
-    useEffect(() => () => clearTimeout(timer.current), []);
-
-    const shareLink = async () => {
-        try {
-            await navigator.clipboard.writeText(`${window.location.origin}/track/${s.id}`);
-            setCopied(true);
-            clearTimeout(timer.current);
-            timer.current = setTimeout(() => setCopied(false), 2000);
-        } catch {
-            window.prompt("Copy this tracking link:", `${window.location.origin}/track/${s.id}`);
+  useEffect(() => {
+    if (!bookingId) return undefined;
+    let active = true;
+    const refreshTracking = () => bookingAPI.tracking(bookingId).then(result => {
+      if (!active) return;
+      setTrackingState(current => {
+        if (current.bookingId === bookingId && current.position) {
+          const latest = Date.parse(current.position.recordedAt) || 0;
+          const fetched = Date.parse(result.data?.recordedAt) || 0;
+          if (!result.data || latest > fetched) return { ...current, message: "" };
         }
-    };
+        return { bookingId, position: result.data || null, message: result.data ? "" : "No live GPS update has been received from the driver's device yet." };
+      });
+    }).catch(() => {
+      if (active) setTrackingState(current => current.bookingId === bookingId && current.position
+        ? current
+        : { bookingId, position: null, message: "Could not load the latest GPS location." });
+    });
+    refreshTracking();
 
-    return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-            <main className="w-full px-7 pb-8 pt-10">
-                {/* Header */}
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-extrabold tracking-tight text-blue-950">Track Your Shipment</h1>
-                        <p className="mt-1 text-slate-600">Real-time location and delivery status of your shipment.</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={shareLink}
-                        className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-5 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
-                    >
-                        {copied ? <><Check className="h-4 w-4" /> Link copied</> : <><Link2 className="h-4 w-4" /> Share Tracking Link</>}
-                    </button>
-                </div>
+    const socket = io(API_BASE, { withCredentials: true });
+    socket.on("tracking:location", update => {
+      if (update.bookingId !== bookingId) return;
+      setTrackingState({ bookingId, position: update, message: "" });
+    });
+    socket.on("booking:status", update => {
+      if (update.bookingId !== bookingId) return;
+      setBookings(rows => rows.map(row => row._id === bookingId ? { ...row, status: update.status, updatedAt: update.updatedAt } : row));
+    });
+    socket.on("connect_error", () => setTrackingState(current => current.bookingId === bookingId ? { ...current, message: "Live connection unavailable. The latest available GPS update is shown." } : current));
+    socket.on("disconnect", reason => {
+      if (reason !== "io client disconnect") setTrackingState(current => current.bookingId === bookingId ? { ...current, message: "Live connection lost. Waiting to reconnect; the last GPS update remains visible." } : current);
+    });
+    socket.on("connect", () => {
+      setTrackingState(current => current.bookingId === bookingId ? { ...current, message: "" } : current);
+      refreshTracking();
+    });
+    return () => { active = false; socket.disconnect(); };
+  }, [bookingId]);
 
-                {/* Summary bar */}
-                <Card className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-[1.3fr_1.4fr_1fr_auto] xl:items-center">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50">
-                            <Truck className="h-7 w-7 text-blue-700" strokeWidth={1.6} />
-                        </span>
-                        <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-bold text-blue-950">#{s.id}</span>
-                                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-600" /> {s.status}
-                                </span>
-                            </div>
-                            <div className="mt-0.5 truncate text-sm text-slate-700">{s.transporter}</div>
-                            <div className="truncate text-xs text-slate-500">{s.vehicleNo} · {s.vehicle}</div>
-                        </div>
-                    </div>
+  return <main className="min-h-screen bg-slate-50 px-5 py-8 text-slate-900 sm:px-8"><div className="mx-auto max-w-5xl">
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-3xl font-bold text-blue-950">Shipment tracking</h1><p className="mt-1 text-slate-600">Booking progress, driver details, and live GPS when available.</p></div><button type="button" onClick={load} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold"><RefreshCw size={15}/> Refresh</button></header>
+    {error && <p role="alert" className="mt-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+    {!loading && bookings.length > 0 && <label className="mt-6 block text-sm font-semibold">Choose booking<select value={selected} onChange={event => setSelected(event.target.value)} className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5">{bookings.map(item => <option key={item._id} value={item._id}>{item.shipmentRef?.pickup || "Pickup"} → {item.shipmentRef?.destination || "Destination"} · {labels[item.status] || item.status}</option>)}</select></label>}
+    {loading ? <p className="mt-6 rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Loading shipment status…</p> : !booking ? <section className="mt-6 rounded-xl border border-slate-200 bg-white p-12 text-center"><Truck size={34} className="mx-auto text-slate-400"/><h2 className="mt-3 font-semibold">No booked shipments to track</h2><p className="mt-1 text-sm text-slate-500">Your shipment status will appear after you request a truck.</p><button onClick={() => navigate("/user/Booking")} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white">View bookings</button></section> : <>
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Booking {booking._id}</p><h2 className="mt-1 text-xl font-bold">{labels[booking.status] || booking.status}</h2></div><span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold capitalize text-blue-700">{booking.status?.replaceAll("_", " ")}</span></div>
+        <div className="my-6 grid gap-4 sm:grid-cols-2"><div className="rounded-lg bg-slate-50 p-4"><p className="text-xs text-slate-500">Pickup</p><p className="mt-1 flex items-center gap-2 font-semibold"><MapPin size={16} className="text-emerald-600"/>{shipment.pickup || "Not available"}</p><p className="mt-1 flex items-center gap-2 text-sm text-slate-500"><CalendarDays size={14}/>{shipment.pickupDate ? new Date(shipment.pickupDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "Date not specified"}</p></div><div className="rounded-lg bg-slate-50 p-4"><p className="text-xs text-slate-500">Delivery</p><p className="mt-1 flex items-center gap-2 font-semibold"><MapPin size={16} className="text-rose-600"/>{shipment.destination || "Not available"}</p></div></div>
+        {terminalDecline ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">This booking ended as {booking.status}. No driver or truck assignment is active.</p> : <ol aria-label="Booking status timeline" className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">{timeline.map((step, index) => {
+          const complete = index <= currentProgress;
+          return <li key={step} className={`rounded-lg border p-3 text-sm ${complete ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-500"}`}><span className="flex items-center gap-2">{complete ? <Check size={16}/> : <Circle size={16}/>}<span className="font-semibold">{step}</span></span></li>;
+        })}</ol>}
+        <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="rounded-lg border border-slate-100 p-4"><p className="text-xs text-slate-500">Cargo type</p><p className="mt-1 font-semibold">{booking.cargoType || "Not specified"}</p></div><div className="rounded-lg border border-slate-100 p-4"><p className="text-xs text-slate-500">Cargo weight</p><p className="mt-1 font-semibold">{Number(booking.cargoWeightKg ?? booking.requestedCapacityKg ?? 0).toLocaleString("en-IN")} kg</p></div><div className="rounded-lg border border-slate-100 p-4"><p className="text-xs text-slate-500">Agreed price</p><p className="mt-1 font-semibold">{formatPrice(booking.amount)}</p></div></div>
+      </section>
 
-                    <div className="flex min-w-0 items-center gap-4">
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                                <CircleDot className="h-3.5 w-3.5 text-emerald-600" /> {s.pickup.location}
-                            </div>
-                            <div className="text-xs text-slate-400">{s.pickup.date}, {s.pickup.time}</div>
-                        </div>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-slate-300" />
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-                                <MapPin className="h-3.5 w-3.5 text-red-500" /> {s.delivery.location}
-                            </div>
-                            <div className="text-xs text-slate-400">{s.delivery.date}, {s.delivery.time}</div>
-                        </div>
-                    </div>
+      <Suspense fallback={<div className="mt-5 flex h-72 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">Loading interactive map…</div>}>
+        <RouteMap key={`booking-route-${booking._id}`} from={shipment.pickup || ""} to={shipment.destination || ""}
+          intermediateStops={shipment.intermediateStops || []} livePosition={livePosition} onRouteCalculated={nextRoute => setRouteState({ bookingId, route: nextRoute })} className="mt-5" />
+      </Suspense>
 
-                    <div className="space-y-1 text-sm text-slate-600">
-                        <div className="flex items-center gap-2"><Boxes className="h-4 w-4 text-slate-400" /> {s.packages} packages</div>
-                        <div className="flex items-center gap-2"><Scale className="h-4 w-4 text-slate-400" /> {s.weight}</div>
-                        <div className="flex items-center gap-2"><Package className="h-4 w-4 text-slate-400" /> {s.volume}</div>
-                    </div>
-
-                    <div className="flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-3 md:col-span-2 xl:col-span-1">
-                        <Clock className="h-6 w-6 shrink-0 text-blue-600" strokeWidth={1.7} />
-                        <div>
-                            <div className="text-xs text-slate-500">Estimated Arrival</div>
-                            <div className="text-sm font-bold text-slate-900">{s.eta}</div>
-                            <div className="text-xs text-slate-500">~{LIVE.remainingKm} km remaining</div>
-                        </div>
-                    </div>
-                </Card>
-
-                <div className="mt-7 grid items-start gap-7 lg:grid-cols-[1fr_340px]">
-                    {/* Left column */}
-                    <div className="min-w-0 space-y-7">
-                        <Card>
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                    <h2 className="text-base font-bold text-blue-950">Live Tracking</h2>
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Live
-                                    </span>
-                                </div>
-                                <div role="group" aria-label="Map type" className="flex gap-1 rounded-lg bg-slate-100 p-1">
-                                    {["map", "satellite"].map((m) => (
-                                        <button
-                                            key={m}
-                                            type="button"
-                                            aria-pressed={mapMode === m}
-                                            onClick={() => setMapMode(m)}
-                                            className={`rounded-md px-3.5 py-1.5 text-xs font-medium capitalize transition ${mapMode === m ? "bg-blue-700 text-white" : "text-slate-600 hover:text-slate-900"
-                                                }`}
-                                        >
-                                            {m}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="relative mt-4 overflow-hidden rounded-xl border border-slate-200">
-                                <img src={mapImg} alt={`Live map showing ${LIVE.currentLocation}`} className="h-80 w-full bg-slate-100 object-cover sm:h-[26rem]" />
-
-                                <div className="absolute inset-x-3 bottom-3 rounded-xl bg-white p-4 shadow-lg sm:inset-x-auto sm:left-3 sm:w-72">
-                                    <div className="flex items-start gap-2.5">
-                                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50">
-                                            <MapPin className="h-4 w-4 text-blue-600" />
-                                        </span>
-                                        <div className="min-w-0">
-                                            <div className="text-xs text-slate-500">Current location</div>
-                                            <div className="text-sm font-semibold text-slate-900">{LIVE.currentLocation}</div>
-                                            <div className="text-xs text-slate-400">Updated {LIVE.lastUpdated}</div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-xs">
-                                        <div className="flex items-center gap-1.5 text-slate-500"><Gauge className="h-3.5 w-3.5" /> Speed</div>
-                                        <div className="text-right font-semibold text-slate-900">{LIVE.speed}</div>
-                                        <div className="flex items-center gap-1.5 text-slate-500"><Timer className="h-3.5 w-3.5" /> Arrival</div>
-                                        <div className="text-right font-semibold text-slate-900">{s.eta}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Journey progress */}
-                            <div className="mt-6">
-                                <div className="mb-2 flex items-center justify-between text-sm">
-                                    <span className="font-semibold text-slate-900">{percent}% of journey completed</span>
-                                    <span className="text-slate-500">{totalKm} km total</span>
-                                </div>
-                                <div className="h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Journey progress">
-                                    <div className="h-full rounded-full bg-blue-600" style={{ width: `${percent}%` }} />
-                                </div>
-                                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                                    <span className="flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" /> {LIVE.coveredKm} km covered</span>
-                                    <span className="flex items-center gap-1.5"><RouteIcon className="h-3.5 w-3.5" /> {LIVE.remainingKm} km remaining</span>
-                                </div>
-                            </div>
-                        </Card>
-
-                        {/* Recent activity */}
-                        <Card>
-                            <h2 className="text-base font-bold text-blue-950">Recent Activity</h2>
-                            <ol className="relative mt-5 space-y-6">
-                                <span className="absolute bottom-3 left-[15px] top-3 w-px bg-slate-200" aria-hidden="true" />
-                                {ACTIVITY.map((a, i) => {
-                                    const Icon = a.icon;
-                                    return (
-                                        <li key={i} className="relative flex items-start gap-4">
-                                            <span
-                                                className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${a.current ? "bg-blue-700 text-white" : "bg-emerald-50 text-emerald-600"
-                                                    }`}
-                                            >
-                                                <Icon className="h-4 w-4" />
-                                            </span>
-                                            <div className="min-w-0 pt-0.5">
-                                                <div className={`text-sm ${a.current ? "font-semibold text-slate-900" : "font-medium text-slate-700"}`}>{a.title}</div>
-                                                <div className="text-xs text-slate-400">{a.time}</div>
-                                            </div>
-                                        </li>
-                                    );
-                                })}
-                            </ol>
-                        </Card>
-                    </div>
-
-                    {/* Right column */}
-                    <div className="min-w-0 space-y-7">
-                        <Card>
-                            <h2 className="text-base font-bold text-blue-950">Driver Information</h2>
-                            <div className="mt-4 flex items-center gap-3">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-800">
-                                    {initials(DRIVER.name)}
-                                </span>
-                                <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-slate-900">{DRIVER.name}</div>
-                                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
-                                        <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> {DRIVER.rating} ({DRIVER.reviews})</span>
-                                        {DRIVER.verified && <span className="flex items-center gap-1 text-emerald-600"><BadgeCheck className="h-3.5 w-3.5" /> Verified</span>}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="mt-4 grid grid-cols-2 gap-3">
-                                <a href={`tel:${DRIVER.phone}`} className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                    <Phone className="h-4 w-4" /> Call
-                                </a>
-                                <button type="button" className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                    <MessageCircle className="h-4 w-4" /> Chat
-                                </button>
-                            </div>
-                            <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                                    <Truck className="h-5 w-5 text-slate-500" />
-                                </span>
-                                <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-slate-900">{s.transporter}</div>
-                                    <div className="truncate text-xs text-slate-500">{s.vehicleNo} · {s.vehicle}</div>
-                                </div>
-                            </div>
-                        </Card>
-
-                        <Card>
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-base font-bold text-blue-950">Shipment Details</h2>
-                                <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
-                                    <FileText className="h-3.5 w-3.5" /> View Invoice
-                                </button>
-                            </div>
-                            <div className="mt-4 space-y-3.5">
-                                <Row icon={PackageOpen} label="Parcel type">{s.parcelType}</Row>
-                                <Row icon={Boxes} label="Packages">{s.packages}</Row>
-                                <Row icon={Scale} label="Total weight">{s.weight}</Row>
-                                <Row icon={Package} label="Total volume">{s.volume}</Row>
-                                <div className="border-t border-slate-100 pt-3.5">
-                                    <Row icon={CircleDot} label="Pickup">
-                                        {s.pickup.location}, {s.pickup.state}
-                                        <span className="block text-xs font-normal text-slate-400">{s.pickup.date}, {s.pickup.time}</span>
-                                    </Row>
-                                </div>
-                                <Row icon={MapPin} label="Delivery">
-                                    {s.delivery.location}, {s.delivery.state}
-                                    <span className="block text-xs font-normal text-slate-400">{s.delivery.date}, {s.delivery.time}</span>
-                                </Row>
-                            </div>
-                        </Card>
-
-                        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                            <PartyPopper className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                            <div>
-                                <div className="text-sm font-semibold text-emerald-800">Your shipment is on track</div>
-                                <div className="text-xs text-emerald-700">We'll notify you at each important update.</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
+      <section className="mt-5 rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-label="Live journey information">
+        <h2 className="text-lg font-bold">Live journey</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Distance travelled</p><p className="mt-1 font-semibold">{progress ? `${progress.travelled.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km` : "Unavailable"}</p></div>
+          <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Remaining distance</p><p className="mt-1 font-semibold">{progress ? `${progress.remaining.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km` : "Unavailable"}</p></div>
+          <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Estimated arrival</p><p className="mt-1 font-semibold">{formatEta(route, progress)}</p></div>
+          <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500">Last GPS update</p><p className="mt-1 font-semibold">{livePosition?.recordedAt ? new Date(livePosition.recordedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "Not received"}</p></div>
         </div>
-    );
+        {trackingMessage && <p role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{trackingMessage}</p>}
+        {!livePosition && booking.status === "in_transit" && !trackingMessage && <p role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Live GPS is unavailable until the driver’s device shares a location.</p>}
+        {livePosition && route && !progress && <p role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Journey distance and ETA are unavailable because the GPS position is too far from the planned road route.</p>}
+        {livePosition && <p className="mt-3 text-xs text-slate-500">ETA uses the planned road route and does not include live traffic.</p>}
+      </section>
+
+      {assigned && <section className="mt-5 grid gap-5 md:grid-cols-2">
+        <article className="rounded-xl border border-slate-200 bg-white p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><BadgeCheck size={19} className="text-emerald-600"/>Assigned driver & truck owner</h2>
+          <div className="flex items-center gap-4">{driver?.profilePhoto ? <img src={`${API_BASE}${driver.profilePhoto}`} alt={`${driver.name} profile`} className="h-16 w-16 rounded-full object-cover"/> : <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-700">{(driver?.name || "D").split(/\s+/).map(word => word[0]).slice(0, 2).join("").toUpperCase()}</span>}<div><p className="font-semibold">{driver?.name || booking.driverProfileId?.ownerName || "Driver"}</p><p className="text-sm text-slate-600">{booking.driverProfileId?.companyName || "Vehicle owner and assigned driver"}</p></div></div>
+          <dl className="mt-5 space-y-2 text-sm"><div className="flex justify-between gap-3"><dt className="text-slate-500">Phone</dt><dd className="font-medium">{driver?.phone || "Not available"}</dd></div><div className="flex justify-between gap-3"><dt className="text-slate-500">Email</dt><dd className="break-all text-right font-medium">{driver?.email || "Not available"}</dd></div></dl>
+          <p className="mt-4 text-xs text-slate-500">The current vehicle record identifies its registered driver as its owner.</p>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-white p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><Truck size={19} className="text-blue-700"/>Assigned truck</h2>
+          {vehiclePhoto ? <img src={`${API_BASE}${vehiclePhoto}`} alt="Assigned truck" className="mb-4 h-36 w-full rounded-lg bg-slate-100 object-cover"/> : <div className="mb-4 flex h-36 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Truck size={42}/></div>}
+          <dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-slate-500">Registration</dt><dd className="mt-1 font-semibold">{vehicle?.number || "Not available"}</dd></div><div><dt className="text-slate-500">Type</dt><dd className="mt-1 font-semibold">{vehicle?.type || "Not available"}</dd></div><div><dt className="text-slate-500">Model</dt><dd className="mt-1 font-semibold">{vehicle?.name || vehicle?.modelYear || "Not available"}</dd></div><div><dt className="text-slate-500">Capacity</dt><dd className="mt-1 font-semibold">{vehicle?.capacity != null ? `${vehicle.capacity} ${vehicle.capacityUnit || ""}` : "Not available"}</dd></div></dl>
+        </article>
+      </section>}
+    </>}
+  </div></main>;
 }

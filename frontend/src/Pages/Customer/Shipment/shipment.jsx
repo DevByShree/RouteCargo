@@ -1,13 +1,22 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    MapPin, Search, X, Info, ExternalLink, Plus, Minus, ArrowRight, ArrowUpDown,
-    Sprout, Package, Route, Timer, Ruler, FileText, AlertCircle, Loader2,
+    MapPin, Search, X, Info, ArrowRight, ArrowUpDown,
+    Sprout, Package, Timer, Ruler, FileText, AlertCircle, Loader2,
 } from "lucide-react";
-import { createShipment, getLocations, getRouteInfo } from "../../../API/Shipmentapi";
+import { createShipment, getLocations, rememberCurrentShipment } from "../../../API/Shipmentapi";
+import { formatRouteDuration, searchPlaces } from "../../../API/mapServices";
+import { useFormDraft } from "../../../Authentication/useFormDraft";
+import { useAuth } from "../../../Authentication/useAuth";
+const RouteMap = lazy(() => import("../../components/RouteMap"));
 
 // Route of the Parcel Details page (must match the path in your router)
 const PARCEL_ROUTE = "/user/parcel";
+const EMPTY_SHIPMENT_DRAFT = { pickup: "", destination: "", pickupDate: new Date().toISOString().slice(0, 10) };
+const validShipmentDraft = value => value && typeof value === "object"
+    && typeof value.pickup === "string" && value.pickup.length <= 160
+    && typeof value.destination === "string" && value.destination.length <= 160
+    && typeof value.pickupDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.pickupDate);
 
 const cityOf = (v) => (v || "").split(",")[0].trim();
 const inputShell =
@@ -35,7 +44,7 @@ function SectionHeader({ icon: Icon, iconClass, title, subtitle, border }) {
     );
 }
 
-function LocationField({ id, label, value, onChange, options, loading, invalid, disabled }) {
+function LocationField({ id, label, value, onChange, options, loading, invalid, disabled, places = [], placesLoading = false, onSelectPlace }) {
     // Suggestions come from the API and are filtered by what the user types
     const typed = cityOf(value).toLowerCase();
     const suggestions = options
@@ -99,69 +108,14 @@ function LocationField({ id, label, value, onChange, options, loading, invalid, 
                     })
                 )}
             </div>
-        </div>
-    );
-}
-
-function RouteMap({ from, to, route }) {
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}`;
-
-    return (
-        <div className="relative h-72 overflow-hidden rounded-xl border border-slate-200 bg-[#e9efe4] sm:h-80">
-            <svg viewBox="0 0 800 300" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" aria-hidden="true">
-                <path d="M0 0 H150 C170 60 130 110 160 170 C185 220 150 260 170 300 H0 Z" fill="#cfe3f3" />
-                <path d="M300 40 C380 10 470 50 540 30 C620 10 700 60 800 40 V0 H300 Z" fill="#dde8d3" />
-                <path d="M420 230 C520 200 640 250 800 220 V300 H400 Z" fill="#dfe9d6" />
-                <path d="M60 180 C260 150 420 120 560 150 S720 215 800 235" stroke="#f4d58d" strokeWidth="5" fill="none" opacity=".8" />
-                <path d="M330 0 C350 90 420 160 470 300" stroke="#fff" strokeWidth="4" fill="none" opacity=".8" />
-                <path
-                    d="M165 128 C215 130 250 150 285 165 S350 185 420 185 S520 200 575 235 S650 255 665 262"
-                    stroke="#1d3fd6" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"
-                />
-                <circle cx="305" cy="130" r="4" fill="#1d3fd6" stroke="#fff" strokeWidth="2" />
-                <circle cx="565" cy="228" r="4" fill="#1d3fd6" stroke="#fff" strokeWidth="2" />
-                <circle cx="665" cy="262" r="5" fill="#1d3fd6" stroke="#fff" strokeWidth="2" />
-                <g fontSize="15" fill="#0f172a" fontWeight="700">
-                    <text x="100" y="168">{cityOf(from) || "Origin"}</text>
-                    <text x="685" y="270" textAnchor="start">{cityOf(to) || "Destination"}</text>
-                </g>
-                <path d="M165 128 m-12 -26 a14 14 0 1 1 24 0 c0 12 -12 26 -12 26 s-12 -14 -12 -26z" fill="#ef4444" transform="translate(0,6)" />
-                <circle cx="165" cy="112" r="5" fill="#fff" />
-                <path d="M665 262 m-12 -26 a14 14 0 1 1 24 0 c0 12 -12 26 -12 26 s-12 -14 -12 -26z" fill="#16a34a" transform="translate(0,-6)" />
-                <circle cx="665" cy="224" r="5" fill="#fff" />
-            </svg>
-
-            {/* Route card */}
-            <div className="absolute left-3 top-3 max-w-[15rem] rounded-lg bg-white p-4 shadow-md">
-                <div className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                    <span className="truncate">{cityOf(from) || "—"}</span>
-                    <ArrowRight className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{cityOf(to) || "—"}</span>
-                </div>
-                <p className="mt-1 text-sm text-slate-500">
-                    {route ? `~${route.km} km${route.time ? `  •  ~${route.time}` : ""}` : "Distance not available"}
-                </p>
-                {route?.popular && (
-                    <span className="mt-3 inline-block rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                        Popular Route
-                    </span>
-                )}
-            </div>
-
-            <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute right-3 top-3 flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-blue-700 shadow-md hover:bg-slate-50"
-            >
-                View on Maps <ExternalLink className="h-4 w-4" />
-            </a>
-
-            <div className="absolute bottom-3 right-3 flex flex-col overflow-hidden rounded-lg bg-white shadow-md">
-                <button type="button" aria-label="Zoom in" className="p-2.5 hover:bg-slate-50"><Plus className="h-4 w-4" /></button>
-                <div className="h-px bg-slate-200" />
-                <button type="button" aria-label="Zoom out" className="p-2.5 hover:bg-slate-50"><Minus className="h-4 w-4" /></button>
-            </div>
+            {(placesLoading || places.length > 0) && <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm" role="listbox" aria-label={`${label} address suggestions`}>
+                {placesLoading && <p className="px-2 py-1 text-xs text-slate-500">Searching mapped addresses…</p>}
+                {places.map(place => <button key={`${place.latitude}-${place.longitude}-${place.label}`} type="button" role="option" aria-selected={value === place.label}
+                    onClick={() => onSelectPlace(place)} className="block w-full rounded-md px-2 py-1.5 text-left text-xs text-slate-700 hover:bg-blue-50">
+                    <span className="block font-medium">{place.label}</span>
+                    <span className="text-slate-500">{[place.state, place.country].filter(Boolean).join(", ")}</span>
+                </button>)}
+            </div>}
         </div>
     );
 }
@@ -179,20 +133,28 @@ function SummaryStat({ icon: Icon, label, children }) {
 
 export default function Shipment() {
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     // Form values
-    const [pickup, setPickup] = useState("");
-    const [delivery, setDelivery] = useState("");
+    const [shipmentDraft, setShipmentDraft, clearShipmentDraft] = useFormDraft({ formId: "create-shipment", initialValue: EMPTY_SHIPMENT_DRAFT, validate: validShipmentDraft });
+    const { pickup, destination: delivery, pickupDate } = shipmentDraft;
+    const setPickup = (value) => setShipmentDraft((draft) => ({ ...draft, pickup: value }));
+    const setDelivery = (value) => setShipmentDraft((draft) => ({ ...draft, destination: value }));
+    const setPickupDate = (value) => setShipmentDraft((draft) => ({ ...draft, pickupDate: value }));
     const [touched, setTouched] = useState(false);
+    const [pickupPlace, setPickupPlace] = useState(null);
+    const [deliveryPlace, setDeliveryPlace] = useState(null);
+    const [route, setRoute] = useState(null);
+    const [pickupMatches, setPickupMatches] = useState([]);
+    const [deliveryMatches, setDeliveryMatches] = useState([]);
+    const [pickupSearchLoading, setPickupSearchLoading] = useState(false);
+    const [deliverySearchLoading, setDeliverySearchLoading] = useState(false);
 
     // Locations from the API (used as suggestions)
     const [pickupOptions, setPickupOptions] = useState([]);
     const [deliveryOptions, setDeliveryOptions] = useState([]);
     const [locationsLoading, setLocationsLoading] = useState(true);
     const [locationsError, setLocationsError] = useState("");
-
-    // Route info (distance / time) from the API
-    const [route, setRoute] = useState(null);
 
     // Submit state
     const [submitting, setSubmitting] = useState(false);
@@ -217,6 +179,30 @@ export default function Shipment() {
         return () => { cancelled = true; };
     }, []);
 
+    useEffect(() => {
+        if (pickup.trim().length < 3 || pickupPlace?.label === pickup.trim()) return undefined;
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setPickupSearchLoading(true);
+            try { setPickupMatches(await searchPlaces(pickup, { signal: controller.signal, limit: 4 })); }
+            catch (searchError) { if (searchError.name !== "AbortError") setPickupMatches([]); }
+            finally { if (!controller.signal.aborted) setPickupSearchLoading(false); }
+        }, 450);
+        return () => { window.clearTimeout(timer); controller.abort(); };
+    }, [pickup, pickupPlace?.label]);
+
+    useEffect(() => {
+        if (delivery.trim().length < 3 || deliveryPlace?.label === delivery.trim()) return undefined;
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setDeliverySearchLoading(true);
+            try { setDeliveryMatches(await searchPlaces(delivery, { signal: controller.signal, limit: 4 })); }
+            catch (searchError) { if (searchError.name !== "AbortError") setDeliveryMatches([]); }
+            finally { if (!controller.signal.aborted) setDeliverySearchLoading(false); }
+        }, 450);
+        return () => { window.clearTimeout(timer); controller.abort(); };
+    }, [delivery, deliveryPlace?.label]);
+
     /* ----- Validation ----- */
     const sameLocation =
         pickup.trim() && delivery.trim() && cityOf(pickup).toLowerCase() === cityOf(delivery).toLowerCase();
@@ -226,27 +212,22 @@ export default function Shipment() {
     else if (sameLocation) error = "Pickup and delivery locations must be different.";
     const valid = !error;
 
-    /* ----- Fetch distance / time when both locations are valid ----- */
-    useEffect(() => {
-        if (!valid) {
-            const timer = setTimeout(() => setRoute(null), 0);
-            return () => clearTimeout(timer);
-        }
-        let cancelled = false;
-        const timer = setTimeout(async () => {
-            const info = await getRouteInfo(cityOf(pickup), cityOf(delivery));
-            if (!cancelled) setRoute(info);
-        }, 400); // wait until the user stops typing
-        return () => { cancelled = true; clearTimeout(timer); };
-    }, [pickup, delivery, valid]);
-
     const clearApiState = () => { setApiError(""); setNeedsSignIn(false); };
-    const changePickup = (v) => { setPickup(v); clearApiState(); };
-    const changeDelivery = (v) => { setDelivery(v); clearApiState(); };
+    const changePickup = (v) => { setPickup(v); setPickupPlace(null); setPickupMatches([]); setPickupSearchLoading(false); setRoute(null); clearApiState(); };
+    const changeDelivery = (v) => { setDelivery(v); setDeliveryPlace(null); setDeliveryMatches([]); setDeliverySearchLoading(false); setRoute(null); clearApiState(); };
+    const selectPickupPlace = place => { setPickup(place.label); setPickupPlace(place); setPickupMatches([]); setPickupSearchLoading(false); setRoute(null); clearApiState(); };
+    const selectDeliveryPlace = place => { setDelivery(place.label); setDeliveryPlace(place); setDeliveryMatches([]); setDeliverySearchLoading(false); setRoute(null); clearApiState(); };
 
     const swap = () => {
         setPickup(delivery);
         setDelivery(pickup);
+        setPickupPlace(deliveryPlace);
+        setDeliveryPlace(pickupPlace);
+        setPickupMatches([]);
+        setDeliveryMatches([]);
+        setPickupSearchLoading(false);
+        setDeliverySearchLoading(false);
+        setRoute(null);
     };
 
     const next = async () => {
@@ -264,13 +245,18 @@ export default function Shipment() {
             const { shipment } = await createShipment({
                 pickup: cityOf(pickup),
                 destination: cityOf(delivery),
+                pickupDate,
             });
+            clearShipmentDraft();
 
             // Keep the id so the Parcel page still works after a refresh
             const shipmentId = shipment?.shipmentid ?? shipment?.shipmentId ?? shipment?.id;
-            if (shipmentId != null) sessionStorage.setItem("currentShipmentId", String(shipmentId));
+            if (shipmentId != null) {
+                sessionStorage.setItem("currentShipmentId", String(shipmentId));
+                rememberCurrentShipment(user?.id, shipment);
+            }
 
-            navigate(PARCEL_ROUTE, { state: { pickup, destination: delivery, shipment } });
+            navigate(PARCEL_ROUTE, { state: { pickup, destination: delivery, pickupDate, shipment } });
         } catch (err) {
             if (err.code === "NOT_SIGNED_IN") setNeedsSignIn(true);
             setApiError(err.message || "Something went wrong. Please try again.");
@@ -316,6 +302,9 @@ export default function Shipment() {
                                 onChange={changePickup}
                                 options={pickupOptions}
                                 loading={locationsLoading}
+                                places={pickupMatches}
+                                placesLoading={pickupSearchLoading}
+                                onSelectPlace={selectPickupPlace}
                                 invalid={touched && !pickup.trim()}
                                 disabled={submitting}
                             />
@@ -337,9 +326,17 @@ export default function Shipment() {
                                 onChange={changeDelivery}
                                 options={deliveryOptions}
                                 loading={locationsLoading}
+                                places={deliveryMatches}
+                                placesLoading={deliverySearchLoading}
+                                onSelectPlace={selectDeliveryPlace}
                                 invalid={(touched && !delivery.trim()) || !!sameLocation}
                                 disabled={submitting}
                             />
+                        </div>
+
+                        <div className="mt-5 max-w-sm">
+                            <label htmlFor="pickup-date" className="mb-1 block text-sm font-medium text-slate-700">Pickup date</label>
+                            <input id="pickup-date" type="date" min={new Date().toISOString().slice(0, 10)} value={pickupDate} onChange={e => setPickupDate(e.target.value)} required disabled={submitting} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500" />
                         </div>
 
                         {locationsError && (
@@ -360,7 +357,9 @@ export default function Shipment() {
                         </div>
 
                         <div className="mt-5">
-                            <RouteMap from={pickup} to={delivery} route={route} />
+                            <Suspense fallback={<div className="flex h-72 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-500 sm:h-80">Loading interactive map…</div>}>
+                                <RouteMap from={pickup} to={delivery} fromPlace={pickupPlace} toPlace={deliveryPlace} onRouteCalculated={setRoute} />
+                            </Suspense>
                         </div>
                     </section>
 
@@ -394,21 +393,11 @@ export default function Shipment() {
 
                         <div className="mt-7 space-y-4 border-t border-slate-100 pt-6">
                             <SummaryStat icon={Ruler} label="Distance (approx.)">
-                                <span className="font-medium">{route ? `${route.km} km` : "—"}</span>
+                                <span className="font-medium">{route ? `${route.distanceKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km` : "—"}</span>
                             </SummaryStat>
                             <SummaryStat icon={Timer} label="Estimated Time">
-                                <span className="font-medium">{route?.time || "—"}</span>
+                                <span className="font-medium">{route ? `${formatRouteDuration(route.durationSeconds)} estimated` : "—"}</span>
                             </SummaryStat>
-                            {route && route.popular != null && (
-                                <SummaryStat icon={Route} label="Route Availability">
-                                    <span
-                                        className={`rounded-md px-2.5 py-1 text-xs font-medium ${route.popular ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                                            }`}
-                                    >
-                                        {route.popular ? "High Availability" : "Moderate Availability"}
-                                    </span>
-                                </SummaryStat>
-                            )}
                         </div>
 
                         <div className="mt-7 flex items-start gap-3 rounded-lg bg-emerald-50 p-4 text-sm text-slate-700">
@@ -433,11 +422,13 @@ export default function Shipment() {
                             </div>
                         )}
 
-                        <button
+                        <div className="mt-5 flex items-center justify-between gap-3">
+                            <button type="button" onClick={clearShipmentDraft} disabled={submitting} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">Clear form</button>
+                            <button
                             type="button"
                             onClick={next}
                             disabled={submitting}
-                            className={`mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-lg font-medium text-white shadow-sm transition-colors ${submitting
+                            className={`flex h-12 flex-1 items-center justify-center gap-2 rounded-lg font-medium text-white shadow-sm transition-colors ${submitting
                                 ? "cursor-wait bg-blue-400"
                                 : valid
                                     ? "bg-blue-700 hover:bg-blue-800"
@@ -450,7 +441,8 @@ export default function Shipment() {
                             ) : (
                                 <>Next: Parcel Details <ArrowRight className="h-4 w-4" /></>
                             )}
-                        </button>
+                            </button>
+                        </div>
                     </aside>
                 </div>
             </main>

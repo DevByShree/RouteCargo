@@ -42,7 +42,7 @@ export const uploadProductImages = (images = []) => Promise.all(images.map((i) =
 /* { shipmentId, productName, parcelType, numberOfPackages,            */
 /*   productImages: [], description }                                  */
 /* ------------------------------------------------------------------ */
-export async function createParcel({ shipmentId, productName, parcelType, numberOfPackages, productImages = [], description = "" }) {
+export async function createParcel({ shipmentId, productName, parcelType, numberOfPackages, weightKg, productImages = [], description = "" }) {
     if (shipmentId === null || shipmentId === undefined) {
         throw new Error("Shipment not found. Go back and create the shipment first.");
     }
@@ -50,7 +50,7 @@ export async function createParcel({ shipmentId, productName, parcelType, number
     try {
         const data = await apiRequest("/api/parcel", {
             method: "POST",
-            body: JSON.stringify({ shipmentId, productName, parcelType, numberOfPackages, productImages, description }),
+            body: JSON.stringify({ shipmentId, productName, parcelType, numberOfPackages, weightKg, productImages, description }),
         });
         return data.parcel || data.data || data;
     } catch (error) {

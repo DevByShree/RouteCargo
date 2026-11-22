@@ -1,24 +1,61 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Building2, Truck, Pencil, Save, Plus } from "lucide-react";
+import { User, Building2, Truck, Pencil, Save, Plus, Camera, Trash2 } from "lucide-react";
 import { driverApi } from "../../API/driverApi";
+import { API_BASE, authAPI } from "../../API/api";
+import { useAuth } from "../../Authentication/useAuth";
 const inputClass = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50";
 const labelClass = "mb-1 block text-xs font-semibold text-slate-600";
 
 export default function DriverProfile() {
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({});
   const [trucks, setTrucks] = useState([]);
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState("");
+  const [photoPreview, setPhotoPreview] = useState("");
+  const photoInput = useRef(null);
   useEffect(() => { Promise.all([driverApi.getProfile(), driverApi.listVehicles()]).then(([currentProfile, vehicles]) => { setProfile(currentProfile || {}); setTrucks(vehicles); }).catch(e => setError(e.message)); }, []);
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
   const update = (key, value) => setProfile(p => ({ ...p, [key]: value }));
   const save = async () => { try { setProfile(await driverApi.saveProfile({ ...profile, yearEstablishment: profile.yearEstablishment || null })); setEditing(false); setSaved(true); setError(""); setTimeout(() => setSaved(false), 2500); } catch (e) { setError(e.message); } };
+  const uploadPhoto = async event => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoMessage("");
+    setPhotoBusy(true);
+    try {
+      const response = await authAPI.uploadProfilePhoto(file);
+      const profilePhoto = response.data?.profilePhoto || "";
+      updateUser({ profilePhoto });
+      setPhotoPreview("");
+      setPhotoMessage("Profile photo updated.");
+    } catch (uploadError) {
+      setPhotoMessage(uploadError.data?.message || uploadError.message || "Could not upload the photo.");
+    } finally { setPhotoBusy(false); }
+  };
+  const removePhoto = async () => {
+    setPhotoBusy(true);
+    setPhotoMessage("");
+    try { await authAPI.removeProfilePhoto(); updateUser({ profilePhoto: "" }); setPhotoPreview(""); setPhotoMessage("Profile photo removed."); }
+    catch (removeError) { setPhotoMessage(removeError.data?.message || removeError.message || "Could not remove the photo."); }
+    finally { setPhotoBusy(false); }
+  };
   return <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
     <div className="mx-auto max-w-7xl">
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Profile</h1><p className="mt-1 text-sm text-slate-500">Manage your personal and transport company details.</p></div>
+        <div className="flex items-center gap-4"><div className="flex flex-col items-center gap-2">
+          {photoPreview || user?.profilePhoto ? <img src={photoPreview || `${API_BASE}${user.profilePhoto}`} alt={`${user?.name || "Driver"} profile`} className="h-16 w-16 rounded-full object-cover ring-2 ring-blue-100"/> : <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-700 text-2xl font-bold text-white">{(user?.name || "D").split(/\s+/).map(word => word[0]).slice(0, 2).join("").toUpperCase()}</span>}
+          <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={uploadPhoto}/>
+          <div className="flex gap-2"><button type="button" disabled={photoBusy} onClick={() => photoInput.current?.click()} className="inline-flex items-center gap-1 rounded border border-blue-200 px-2 py-1 text-xs font-semibold text-blue-700 disabled:opacity-50"><Camera size={13}/>{photoBusy ? "Uploading…" : user?.profilePhoto ? "Change" : "Upload Photo"}</button>{user?.profilePhoto && <button type="button" disabled={photoBusy} onClick={removePhoto} className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 disabled:opacity-50"><Trash2 size={13}/>Remove</button>}</div>
+          {photoMessage && <span role="status" className="text-xs text-slate-500">{photoMessage}</span>}
+        </div><div><h1 className="text-2xl font-bold tracking-tight text-slate-900">Profile</h1><p className="mt-1 text-sm text-slate-500">Manage your personal and transport company details.</p></div></div>
         <button onClick={() => editing ? save() : setEditing(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">{editing ? <Save size={16}/> : <Pencil size={16}/>} {editing ? "Save Profile" : "Edit Profile"}</button>
       </header>
       {saved && <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">Profile saved.</div>}{error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
